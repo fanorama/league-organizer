@@ -106,10 +106,6 @@ export interface Season {
   bracket?: PlayoffBracket;
 }
 
-export interface AppSettings {
-  apiKey: string;
-}
-
 export interface CacheEntry<T = ClubFromApi[]> {
   data: T;
   fetchedAt: string;

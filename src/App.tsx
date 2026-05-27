@@ -4,7 +4,6 @@ import { LeaguesPage } from './pages/LeaguesPage';
 import { PlayerPage } from './pages/PlayerPage';
 import { PlayersPage } from './pages/PlayersPage';
 import { SeasonPage } from './pages/SeasonPage';
-import { SettingsPage } from './pages/SettingsPage';
 import { TeamsPage } from './pages/TeamsPage';
 
 export default function App() {
@@ -17,7 +16,6 @@ export default function App() {
         <Route path="/league/:id/season/:seasonId" element={<SeasonPage />} />
         <Route path="/players" element={<PlayersPage />} />
         <Route path="/player/:id" element={<PlayerPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>

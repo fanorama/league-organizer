@@ -7,11 +7,9 @@ import {
   getAll,
   getById,
   getCache,
-  getSettings,
   remove,
   save,
   saveCache,
-  saveSettings,
   setAll,
 } from './storage';
 
@@ -27,6 +25,12 @@ describe('getAll', () => {
   it('returns stored items', () => {
     localStorage.setItem('test_key', JSON.stringify([{ id: '1', name: 'Alice' }]));
     expect(getAll('test_key')).toEqual([{ id: '1', name: 'Alice' }]);
+  });
+});
+
+describe('KEYS', () => {
+  it('does not expose browser-stored app settings', () => {
+    expect(KEYS).not.toHaveProperty('settings');
   });
 });
 
@@ -117,31 +121,6 @@ describe('remove', () => {
     save('test_key', { id: 'keep', name: 'Y' });
     remove('test_key', 'missing');
     expect(getAll('test_key')).toHaveLength(1);
-  });
-});
-
-describe('getSettings', () => {
-  it('returns default settings when nothing stored', () => {
-    expect(getSettings()).toEqual({ apiKey: '' });
-  });
-
-  it('returns stored settings', () => {
-    localStorage.setItem(KEYS.settings, JSON.stringify({ apiKey: 'mykey' }));
-    expect(getSettings()).toEqual({ apiKey: 'mykey' });
-  });
-});
-
-describe('saveSettings', () => {
-  it('saves and returns settings', () => {
-    const result = saveSettings({ apiKey: 'abc123' });
-    expect(result.apiKey).toBe('abc123');
-    expect(getSettings().apiKey).toBe('abc123');
-  });
-
-  it('merges partial updates into existing settings', () => {
-    saveSettings({ apiKey: 'initial' });
-    saveSettings({ apiKey: 'updated' });
-    expect(getSettings().apiKey).toBe('updated');
   });
 });
 

@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Badge } from '../components/Badge';
 import { Shell } from '../components/Shell';
 import { SpinWheel } from '../components/SpinWheel';
 import { TeamBadge } from '../components/TeamBadge';
 import { COMPETITIONS, fetchClubs } from '../lib/api';
 import { canAssignPlayerToLeague, getAssignablePlayersForLeague } from '../lib/playerAssignment';
-import { getSettings } from '../lib/storage';
+import { saveCache } from '../lib/storage';
 import type { ClubFromApi } from '../lib/types';
 import { useLeagueStore } from '../store/useLeagueStore';
 import { usePlayerStore } from '../store/usePlayerStore';
@@ -14,7 +14,6 @@ import { useTeamStore } from '../store/useTeamStore';
 
 export function TeamsPage() {
   const { id: leagueId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const league = useLeagueStore((s) => s.leagues.find((item) => item.id === leagueId));
   const allTeams = useTeamStore((s) => s.teams);
   const addTeam = useTeamStore((s) => s.addTeam);
@@ -83,11 +82,11 @@ export function TeamsPage() {
   }
 
   function handleOpenImport() {
-    if (!getSettings().apiKey) {
-      navigate('/settings');
-      return;
-    }
     setShowImport(true);
+  }
+
+  function handleRefreshCache() {
+    saveCache({});
   }
 
   return (
@@ -102,6 +101,9 @@ export function TeamsPage() {
               </button>
               <button id="importButton" className="btn" type="button" onClick={handleOpenImport}>
                 Import clubs
+              </button>
+              <button className="btn" type="button" onClick={handleRefreshCache}>
+                Refresh cache
               </button>
             </div>
           </div>

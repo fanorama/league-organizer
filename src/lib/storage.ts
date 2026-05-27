@@ -1,7 +1,6 @@
-import type { AppSettings, CacheEntry } from './types';
+import type { CacheEntry } from './types';
 
 export const KEYS = {
-  settings: 'app_settings',
   leagues: 'leagues',
   teams: 'teams',
   seasons: 'seasons',
@@ -57,16 +56,6 @@ export function save<T extends object>(key: string, item: T & { id?: string }): 
 
 export function remove(key: string, id: string): void {
   setAll(key, getAll<{ id: string }>(key).filter((item) => item.id !== id));
-}
-
-export function getSettings(): AppSettings {
-  return JSON.parse(localStorage.getItem(KEYS.settings) || '{"apiKey":""}') as AppSettings;
-}
-
-export function saveSettings(settings: Partial<AppSettings>): AppSettings {
-  const next = { ...getSettings(), ...settings };
-  localStorage.setItem(KEYS.settings, JSON.stringify(next));
-  return next;
 }
 
 export function getCache<T = CacheEntry>(): Record<string, T> {

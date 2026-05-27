@@ -1,7 +1,6 @@
-import { getCache, getSettings, saveCache } from './storage';
+import { getCache, saveCache } from './storage';
 import type { CacheEntry, ClubFromApi } from './types';
 
-const API_BASE_URL = 'https://v3.football.api-sports.io';
 const API_SEASON = 2024;
 
 export const COMPETITIONS = [
@@ -23,14 +22,7 @@ export async function fetchClubs(competitionId: string | number): Promise<ClubFr
   const cacheKey = `${competitionId}:${API_SEASON}`;
   if (hasFreshCache(cache[cacheKey])) return cache[cacheKey].data;
 
-  const { apiKey } = getSettings();
-  if (!apiKey) {
-    throw new Error('API key is required. Save your API key in Settings first.');
-  }
-
-  const response = await fetch(`${API_BASE_URL}/teams?league=${competitionId}&season=${API_SEASON}`, {
-    headers: { 'x-apisports-key': apiKey },
-  });
+  const response = await fetch(`/api/football?league=${competitionId}&season=${API_SEASON}`);
   if (!response.ok) throw new Error(`API request failed: ${response.status}`);
   const payload = await response.json();
   if (payload.errors && Object.keys(payload.errors).length) {
