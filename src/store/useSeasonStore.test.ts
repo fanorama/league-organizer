@@ -23,7 +23,17 @@ function makeTeam(id: string) {
     id,
     leagueId: 'lg1',
     name: `Team ${id}`,
+    owner: `Player ${id}`,
+    ownerId: `p${id}`,
     status: 'active',
+    createdAt: new Date().toISOString(),
+  });
+}
+
+function makePlayer(id: string, name: string) {
+  return save(KEYS.players, {
+    id,
+    name,
     createdAt: new Date().toISOString(),
   });
 }
@@ -74,6 +84,20 @@ describe('useSeasonStore.createSeason', () => {
     const second = createSeason(league, [t1, t2]);
 
     expect(second.number).toBe(2);
+  });
+
+  it('snapshots owner names at season creation', () => {
+    const league = makeLeague() as never;
+    makePlayer('pt1', 'Alice');
+    makePlayer('pt2', 'Bob');
+    const t1 = { ...(makeTeam('t1') as object), owner: 'Old Alice', ownerId: 'pt1' } as never;
+    const t2 = { ...(makeTeam('t2') as object), owner: 'Old Bob', ownerId: 'pt2' } as never;
+
+    const { createSeason } = useSeasonStore.getState();
+    const season = createSeason(league, [t1, t2]);
+
+    expect(season.ownerSnapshots?.t1).toEqual({ playerId: 'pt1', playerName: 'Alice' });
+    expect(season.ownerSnapshots?.t2).toEqual({ playerId: 'pt2', playerName: 'Bob' });
   });
 });
 

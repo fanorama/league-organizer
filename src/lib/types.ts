@@ -24,6 +24,12 @@ export interface League {
   settings: LeagueSettings;
 }
 
+export interface Player {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface Team {
   id: string;
   leagueId: string;
@@ -31,7 +37,8 @@ export interface Team {
   shortName?: string;
   badge?: string;
   logo?: string;
-  owner?: string | null;
+  owner?: string | null; // DEPRECATED — retained for migration fallback
+  ownerId?: string | null; // points to Player.id global
   status: 'pool' | 'active';
   externalId?: string | null;
   createdAt?: string;
@@ -91,6 +98,7 @@ export interface Season {
   number: number;
   status: 'setup' | 'active' | 'finished' | 'playoff_setup' | 'playoff_active';
   teamIds?: string[];
+  ownerSnapshots?: Record<string, { playerId: string | null; playerName: string | null }>;
   champion?: string | null;
   createdAt: string;
   startedAt?: string | null;

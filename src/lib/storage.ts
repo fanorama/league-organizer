@@ -7,9 +7,10 @@ export const KEYS = {
   seasons: 'seasons',
   matches: 'matches',
   clubsCache: 'clubs_cache',
+  players: 'players',
 } as const;
 
-export function getAll<T>(key: string): T[] {
+export function getAll<T = { id: string }>(key: string): T[] {
   return JSON.parse(localStorage.getItem(key) || '[]') as T[];
 }
 
@@ -17,7 +18,7 @@ export function setAll<T>(key: string, items: T[]): void {
   localStorage.setItem(key, JSON.stringify(items));
 }
 
-export function getById<T extends { id: string }>(key: string, id: string | null | undefined): T | null {
+export function getById<T extends { id: string } = any>(key: string, id: string | null | undefined): T | null {
   return getAll<T>(key).find((item) => item.id === id) || null;
 }
 
@@ -38,7 +39,7 @@ export function createId(): string {
   return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function save<T extends { id?: string }>(key: string, item: T): T & { id: string } {
+export function save<T extends object>(key: string, item: T & { id?: string }): T & { id: string } {
   const items = getAll<T & { id: string }>(key);
   const next = {
     ...item,

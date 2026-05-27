@@ -3,8 +3,10 @@ import { useMemo } from 'react';
 import { Badge } from '../components/Badge';
 import { Shell } from '../components/Shell';
 import { TeamBadge } from '../components/TeamBadge';
+import { calculatePlayerStats } from '../lib/playerStats';
 import type { PlayoffFormat } from '../lib/types';
 import { useLeagueStore } from '../store/useLeagueStore';
+import { usePlayerStore } from '../store/usePlayerStore';
 import { useSeasonStore } from '../store/useSeasonStore';
 import { useTeamStore } from '../store/useTeamStore';
 
@@ -24,8 +26,21 @@ export function LeaguePage() {
   const createSeason = useSeasonStore((s) => s.createSeason);
   const allSeasons = useSeasonStore((s) => s.seasons);
   const allTeams = useTeamStore((s) => s.teams);
+  const allPlayers = usePlayerStore((s) => s.players);
   const seasons = useMemo(() => allSeasons.filter((season) => season.leagueId === id).sort((a, b) => b.number - a.number), [allSeasons, id]);
-  const teams = useMemo(() => allTeams.filter((team) => team.leagueId === id && team.status === 'active' && team.owner), [allTeams, id]);
+  const teams = useMemo(() => allTeams.filter((team) => team.leagueId === id && team.status === 'active' && team.ownerId), [allTeams, id]);
+  const playerLeagueStats = useMemo(() => {
+    const leagueTeams = allTeams.filter((team) => team.leagueId === id && team.ownerId);
+    const playerIds = [...new Set(leagueTeams.map((team) => team.ownerId!))];
+    return playerIds
+      .map((playerId) => {
+        const player = allPlayers.find((candidate) => candidate.id === playerId);
+        const stats = calculatePlayerStats(playerId, id).leagues[0]?.stats;
+        return player && stats ? { player, stats } : null;
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+      .sort((a, b) => b.stats.points - a.stats.points || b.stats.gd - a.stats.gd);
+  }, [allTeams, allPlayers, id]);
 
   if (!league) {
     return (
@@ -75,37 +90,80 @@ export function LeaguePage() {
   return (
     <Shell active="leagues" title={league.name} actions={<Link className="btn" to={`/league/${league.id}/teams`}>Teams</Link>}>
       <div className="two-col">
-        <section className="panel">
-          <div className="panel-head">
-            <h2>Seasons</h2>
-            <button id="createSeason" className="btn primary" type="button" disabled={teams.length < 2} onClick={handleCreateSeason}>
-              Create season
-            </button>
-          </div>
-          <div className="panel-body">
-            {teams.length < 2 ? <div className="empty">Add at least two teams before creating a season.</div> : null}
-            {seasons.length ? (
-              <div className="list">
-                {seasons.map((season) => (
-                  <div className="list-row" key={season.id}>
-                    <div>
-                      <strong>Season {season.number}</strong>
-                      <div className="muted">{season.champion ? `Champion: ${champions[season.champion]?.name || 'Unknown'}` : 'No champion yet'}</div>
+        <div className="list">
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Seasons</h2>
+              <button id="createSeason" className="btn primary" type="button" disabled={teams.length < 2} onClick={handleCreateSeason}>
+                Create season
+              </button>
+            </div>
+            <div className="panel-body">
+              {teams.length < 2 ? <div className="empty">Add at least two teams before creating a season.</div> : null}
+              {seasons.length ? (
+                <div className="list">
+                  {seasons.map((season) => (
+                    <div className="list-row" key={season.id}>
+                      <div>
+                        <strong>Season {season.number}</strong>
+                        <div className="muted">{season.champion ? `Champion: ${champions[season.champion]?.name || 'Unknown'}` : 'No champion yet'}</div>
+                      </div>
+                      <div className="actions">
+                        <Badge status={season.status} />
+                        <Link className="btn" to={`/league/${league.id}/season/${season.id}`}>
+                          Open
+                        </Link>
+                      </div>
                     </div>
-                    <div className="actions">
-                      <Badge status={season.status} />
-                      <Link className="btn" to={`/league/${league.id}/season/${season.id}`}>
-                        Open
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              ) : teams.length >= 2 ? (
+                <div className="empty">No seasons yet.</div>
+              ) : null}
+            </div>
+          </section>
+          {playerLeagueStats.length > 0 ? (
+            <section className="panel">
+              <div className="panel-head">
+                <h2>Player Stats</h2>
               </div>
-            ) : teams.length >= 2 ? (
-              <div className="empty">No seasons yet.</div>
-            ) : null}
-          </div>
-        </section>
+              <div className="panel-body">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>M</th>
+                      <th>W</th>
+                      <th>D</th>
+                      <th>L</th>
+                      <th>GD</th>
+                      <th>Pts</th>
+                      <th>Champ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {playerLeagueStats.map((entry) => (
+                      <tr key={entry.player.id}>
+                        <td>
+                          <Link to={`/player/${entry.player.id}`}>{entry.player.name}</Link>
+                        </td>
+                        <td>{entry.stats.played}</td>
+                        <td>{entry.stats.won}</td>
+                        <td>{entry.stats.drawn}</td>
+                        <td>{entry.stats.lost}</td>
+                        <td>{entry.stats.gd >= 0 ? `+${entry.stats.gd}` : entry.stats.gd}</td>
+                        <td>
+                          <strong>{entry.stats.points}</strong>
+                        </td>
+                        <td>{entry.stats.championships || ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+        </div>
         <aside className="list">
           <section className="card">
             <h2>League settings</h2>

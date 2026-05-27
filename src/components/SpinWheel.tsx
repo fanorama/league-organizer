@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useTeamStore } from '../store/useTeamStore';
+import { usePlayerStore } from '../store/usePlayerStore';
+import { canAssignPlayerToLeague, getAssignablePlayersForLeague } from '../lib/playerAssignment';
 import type { Team } from '../lib/types';
 
 interface SpinWheelProps {
@@ -12,14 +14,18 @@ interface SpinWheelProps {
 export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
   const allTeams = useTeamStore((s) => s.teams);
   const updateTeam = useTeamStore((s) => s.updateTeam);
+  const players = usePlayerStore((s) => s.players);
+  const addPlayer = usePlayerStore((s) => s.addPlayer);
   const [selected, setSelected] = useState<Team | null>(null);
-  const [ownerInput, setOwnerInput] = useState('');
+  const [selectedPlayerId, setSelectedPlayerId] = useState('');
+  const [newPlayerName, setNewPlayerName] = useState('');
   const [wheelLabel, setWheelLabel] = useState('Ready');
   const wheelRef = useRef<HTMLDivElement>(null);
   const rotationRef = useRef(0);
 
   const teams = useMemo(() => allTeams.filter((team) => team.leagueId === leagueId), [allTeams, leagueId]);
   const poolTeams = useMemo(() => teams.filter((team) => (team.status || 'pool') === 'pool'), [teams]);
+  const assignablePlayers = useMemo(() => getAssignablePlayersForLeague(players, allTeams, leagueId), [players, allTeams, leagueId]);
 
   function handleSpin() {
     if (!poolTeams.length) return;
@@ -35,9 +41,17 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
   function handleAssign(event: React.FormEvent) {
     event.preventDefault();
     if (!selected) return;
-    updateTeam({ ...selected, owner: ownerInput.trim(), status: 'active' });
+    const trimmedNewPlayerName = newPlayerName.trim();
+    if (selectedPlayerId === '__new__' && !trimmedNewPlayerName) return;
+    if (selectedPlayerId !== '__new__' && !canAssignPlayerToLeague(selectedPlayerId, allTeams, leagueId)) return;
+    const player = selectedPlayerId === '__new__'
+      ? addPlayer({ name: trimmedNewPlayerName, createdAt: new Date().toISOString() })
+      : assignablePlayers.find((candidate) => candidate.id === selectedPlayerId);
+    if (!player) return;
+    updateTeam({ ...selected, ownerId: player.id, owner: player.name, status: 'active' });
     setSelected(null);
-    setOwnerInput('');
+    setSelectedPlayerId('');
+    setNewPlayerName('');
     setWheelLabel('Ready');
     onDone();
   }
@@ -62,15 +76,28 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
               <form className="list" onSubmit={handleAssign}>
                 <div className="field">
                   <label>Owner for {selected.name}</label>
-                  <input
-                    name="owner"
-                    required
-                    placeholder="Owner name"
-                    autoFocus
-                    value={ownerInput}
-                    onChange={(event) => setOwnerInput(event.target.value)}
-                  />
+                  <select value={selectedPlayerId} onChange={(event) => setSelectedPlayerId(event.target.value)} required>
+                    <option value="">-- Pilih player --</option>
+                    {assignablePlayers.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.name}
+                      </option>
+                    ))}
+                    <option value="__new__">+ Tambah player baru</option>
+                  </select>
                 </div>
+                {selectedPlayerId === '__new__' ? (
+                  <div className="field">
+                    <label>Nama player baru</label>
+                    <input
+                      value={newPlayerName}
+                      onChange={(event) => setNewPlayerName(event.target.value)}
+                      placeholder="Nama player"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                ) : null}
                 <button className="btn primary" type="submit">
                   Assign
                 </button>

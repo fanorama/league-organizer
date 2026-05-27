@@ -82,14 +82,15 @@ describe('useTeamStore.removeTeam', () => {
 });
 
 describe('useTeamStore.unassignTeam', () => {
-  it('sets status to pool and clears owner', () => {
+  it('sets status to pool and clears current owner fields', () => {
     const { addTeam, unassignTeam } = useTeamStore.getState();
-    const team = addTeam({ ...baseTeam(), status: 'active', owner: 'player1' });
+    const team = addTeam({ ...baseTeam(), status: 'active', owner: 'Player 1', ownerId: 'p1' });
     unassignTeam(team.id);
 
-    const stored = getById<{ id: string; status: string; owner: string | null }>(KEYS.teams, team.id);
+    const stored = getById<{ id: string; status: string; owner: string | null; ownerId: string | null }>(KEYS.teams, team.id);
     expect(stored?.status).toBe('pool');
     expect(stored?.owner).toBeNull();
+    expect(stored?.ownerId).toBeNull();
   });
 
   it('does nothing when team id is not found', () => {
@@ -99,12 +100,13 @@ describe('useTeamStore.unassignTeam', () => {
 
   it('reflects the change in store state', () => {
     const { addTeam, unassignTeam } = useTeamStore.getState();
-    const team = addTeam({ ...baseTeam(), status: 'active', owner: 'p1' });
+    const team = addTeam({ ...baseTeam(), status: 'active', owner: 'Player 1', ownerId: 'p1' });
     unassignTeam(team.id);
 
     const storeTeam = useTeamStore.getState().teams.find((t) => t.id === team.id);
     expect(storeTeam?.status).toBe('pool');
     expect(storeTeam?.owner).toBeNull();
+    expect(storeTeam?.ownerId).toBeNull();
   });
 });
 
