@@ -27,6 +27,7 @@
   --radius-lg: 10px;
   --shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
   --header-height: 56px;
+  --content-max: 1200px;
 
   font-family: 'Barlow', system-ui, -apple-system, sans-serif;
 }
@@ -86,7 +87,7 @@ textarea {
   display: flex;
   align-items: center;
   height: 100%;
-  max-width: 1280px;
+  max-width: var(--content-max);
   margin: 0 auto;
   padding: 0 28px;
 }
@@ -167,7 +168,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   min-height: 58px;
-  padding: 0 28px;
+  padding: 0 max(28px, calc((100vw - var(--content-max)) / 2 + 28px));
   border-bottom: 1px solid var(--border);
   background: rgba(10, 13, 20, 0.96);
   backdrop-filter: blur(14px);
@@ -193,7 +194,8 @@ textarea {
 }
 
 .content {
-  width: min(1200px, 100%);
+  width: min(var(--content-max), 100%);
+  margin: 0 auto;
   padding: 28px;
 }
 
@@ -728,6 +730,228 @@ tbody tr:first-child td:first-child {
 
 .hidden {
   display: none !important;
+}
+
+/* Playoff Bracket */
+.bracket-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.bracket-section {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.bracket-section-header {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 12px;
+  padding-left: 2px;
+}
+
+.bracket-rounds-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.bracket-round-col {
+  flex-shrink: 0;
+  min-width: 220px;
+  position: relative;
+  padding-right: 24px;
+}
+
+.bracket-round-col:last-child {
+  padding-right: 0;
+}
+
+.round-col-header {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.round-col-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bracket-slot {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel);
+  min-width: 220px;
+}
+
+.bracket-slot.tbd {
+  opacity: 0.5;
+  border-style: dashed;
+}
+
+.bracket-slot.finished {
+  border-color: var(--success);
+}
+
+.bracket-slot.bye {
+  opacity: 0.6;
+  background: transparent;
+  border-style: dashed;
+  padding: 8px 10px;
+}
+
+.bracket-slot.grand-final {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(79, 124, 255, 0.25);
+}
+
+.slot-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  padding: 6px 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Bracket score row */
+.bsr {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  gap: 8px;
+}
+
+.bsr-side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.bsr-right {
+  justify-content: flex-end;
+}
+
+.bsr-sep {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.bsr-agg {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.bsr-owner {
+  font-size: 0.82rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+.bsr-score {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 18px;
+  text-align: center;
+}
+
+.bsr-win {
+  color: var(--primary);
+}
+
+.bmt-legs {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playoff-leg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.leg-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  min-width: 36px;
+}
+
+.leg-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.leg-sep {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.bmt-note {
+  font-size: 0.75rem;
+  padding: 4px 10px 8px;
+}
+
+.bracket-bye-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.seed-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.seed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.seed-num {
+  font-weight: 600;
+  min-width: 24px;
+  color: var(--muted);
+}
+
+.btn-xs {
+  min-height: 28px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
 }
 
 /* ─── RESPONSIVE ─── */

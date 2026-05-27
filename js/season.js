@@ -1,4 +1,10 @@
-import { createSeasonWithSchedule, replaceSeasonSchedule } from "./schedule.js";
+import {
+  advancePlayoffRound,
+  createSeasonWithSchedule,
+  replaceSeasonSchedule,
+  resolveMultiLegWinnerPublic,
+  startPlayoff
+} from "./schedule.js";
 import { calculateStandings } from "./standings.js";
 import { KEYS, getAll, getById, save } from "./storage.js";
 import { badge, escapeHtml, qs, renderShell, requireEntity, teamBadge } from "./ui.js";
@@ -22,12 +28,16 @@ function render() {
 
   const teams = getAll(KEYS.teams).filter((team) => team.leagueId === league.id && team.status === "active" && team.owner);
   const matches = getAll(KEYS.matches).filter((match) => match.seasonId === season.id);
-  const allFinished = matches.length > 0 && matches.every((match) => match.status === "finished");
+  const leagueMatches = matches.filter((match) => (match.matchType || "league") === "league");
+  const allFinished = leagueMatches.length > 0 && leagueMatches.every((match) => match.status === "finished");
 
   if (season.status === "active" && allFinished) {
     finishSeason();
     return;
   }
+
+  const showPlayoffTab = ["playoff_setup", "playoff_active"].includes(season.status);
+  if (!showPlayoffTab && activeTab === "playoff") activeTab = "schedule";
 
   app.innerHTML = `
     <section class="card" style="margin-bottom:18px">
@@ -37,7 +47,7 @@ function render() {
           <div class="muted">${matches.length} matches · ${matches.filter((match) => match.status === "finished").length} finished</div>
         </div>
         <div class="actions">
-          ${badge(season.status)}
+          ${seasonBadge(season.status)}
           ${season.status === "setup" ? `
             <button id="randomize" class="btn" type="button">Randomize</button>
             <button id="startSeason" class="btn primary" type="button" ${teams.length < 2 ? "disabled" : ""}>Start season</button>
@@ -48,6 +58,7 @@ function render() {
     <div class="tabs">
       <button class="tab ${activeTab === "schedule" ? "active" : ""}" data-tab="schedule" type="button">Schedule</button>
       <button class="tab ${activeTab === "standings" ? "active" : ""}" data-tab="standings" type="button">Standings</button>
+      ${showPlayoffTab ? `<button class="tab ${activeTab === "playoff" ? "active" : ""}" data-tab="playoff" type="button">Playoff</button>` : ""}
     </div>
     <section id="tabContent"></section>
   `;
@@ -71,13 +82,23 @@ function render() {
     }
   });
 
-  if (activeTab === "standings") renderStandings();
+  if (activeTab === "playoff") renderPlayoff();
+  else if (activeTab === "standings") renderStandings();
   else renderSchedule();
+}
+
+function seasonBadge(status) {
+  const labels = {
+    playoff_setup: "Playoff Setup",
+    playoff_active: "Playoff"
+  };
+  if (!labels[status]) return badge(status);
+  return `<span class="badge warning">${labels[status]}</span>`;
 }
 
 function renderSchedule() {
   const teams = teamMap();
-  const matches = getAll(KEYS.matches).filter((match) => match.seasonId === season.id)
+  const matches = getAll(KEYS.matches).filter((match) => match.seasonId === season.id && (match.matchType || "league") === "league")
     .sort((a, b) => a.matchday - b.matchday || a.id.localeCompare(b.id));
   const groups = matches.reduce((acc, match) => {
     if (!acc.has(match.matchday)) acc.set(match.matchday, []);
@@ -193,8 +214,202 @@ function renderStandings() {
   `;
 }
 
+function renderPlayoff() {
+  const content = document.getElementById("tabContent");
+
+  if (season.status === "playoff_setup") {
+    renderPlayoffSetup(content);
+  } else if (season.status === "playoff_active") {
+    renderPlayoffBracket(content);
+  } else {
+    content.innerHTML = `<div class="empty">Playoff selesai.</div>`;
+  }
+}
+
+function renderPlayoffSetup(content) {
+  const playoffConfig = league.settings.playoff;
+  const standings = calculateStandings(season.id);
+  const seeds = standings.slice(0, playoffConfig.teamsCount);
+  const teams = teamMap();
+
+  content.innerHTML = `
+    <section class="card">
+      <h2>Playoff Setup</h2>
+      <p class="muted">Liga reguler selesai. Top ${playoffConfig.teamsCount} tim siap masuk bracket Double Elimination.</p>
+      <ol class="seed-list">
+        ${seeds.map((row, index) => `
+          <li class="seed-row">
+            <span class="seed-num">${index + 1}.</span>
+            <div class="team-line">${teamBadge(teams[row.team.id])}<span class="team-name">${escapeHtml(row.team.name)}</span></div>
+            <span class="muted">${row.pts} pts</span>
+          </li>
+        `).join("")}
+      </ol>
+      <div class="actions" style="margin-top:16px">
+        <button id="startPlayoffBtn" class="btn primary" type="button">Start Playoff</button>
+      </div>
+    </section>
+  `;
+
+  document.getElementById("startPlayoffBtn").addEventListener("click", () => {
+    if (confirm(`Mulai playoff dengan Top ${playoffConfig.teamsCount} tim? Seeding tidak bisa diubah.`)) {
+      startPlayoff(season, league);
+      render();
+    }
+  });
+}
+
+function renderPlayoffBracket(content) {
+  const bracket = season.bracket;
+  const teams = teamMap();
+  const allMatches = Object.fromEntries(
+    getAll(KEYS.matches)
+      .filter((match) => match.seasonId === season.id && match.matchType === "playoff")
+      .map((match) => [match.id, match])
+  );
+
+  const renderSlot = (slot, isGrandFinal = false, isReset = false) => {
+    if (!slot) return "";
+    const label = isReset ? "Grand Final Reset" : isGrandFinal ? "Grand Final" : "";
+    const team1 = teams[slot.team1];
+    const team2 = teams[slot.team2];
+    const tbd1 = !slot.team1;
+    const tbd2 = !slot.team2;
+
+    if (slot.bye) {
+      return `
+        <div class="bracket-slot bye">
+          <div class="bsr">
+            <div class="bsr-side">${teamBadge(team1)}</div>
+            <span class="bsr-sep">BYE</span>
+            <div class="bsr-side bsr-right"></div>
+          </div>
+        </div>`;
+    }
+
+    const slotMatches = slot.matchIds.map((id) => allMatches[id]).filter(Boolean);
+    const canEdit = season.status === "playoff_active";
+    const allSlotFinished = slotMatches.length > 0 && slotMatches.every((m) => m.status === "finished");
+    const winner = allSlotFinished ? resolveMultiLegWinnerPublic(slot, slotMatches) : null;
+    const tied = allSlotFinished && !winner;
+    const isMultiLeg = slotMatches.length > 1;
+
+    const finishedMatches = slotMatches.filter((m) => m.status === "finished");
+    const hasScores = finishedMatches.length > 0;
+    const team1Goals = finishedMatches.reduce((sum, m) =>
+      sum + (m.homeTeamId === slot.team1 ? (m.homeScore ?? 0) : (m.awayScore ?? 0)), 0);
+    const team2Goals = finishedMatches.reduce((sum, m) =>
+      sum + (m.homeTeamId === slot.team2 ? (m.homeScore ?? 0) : (m.awayScore ?? 0)), 0);
+
+    const editableLegs = slotMatches.map((match, legIndex) => {
+      if (!canEdit || match.status === "finished") return "";
+      const home = teams[match.homeTeamId];
+      const away = teams[match.awayTeamId];
+      return `
+        <div class="playoff-leg" data-match-id="${match.id}">
+          ${isMultiLeg ? `<span class="leg-label">Leg ${legIndex + 1}</span>` : ""}
+          <div class="leg-input-row">
+            ${teamBadge(home)}
+            <input class="score-input" name="homeScore" type="number" min="0" value="${match.homeScore ?? ""}">
+            <span class="leg-sep">-</span>
+            <input class="score-input" name="awayScore" type="number" min="0" value="${match.awayScore ?? ""}">
+            ${teamBadge(away)}
+            <button class="btn primary btn-xs" data-save-playoff="${match.id}" type="button">Save</button>
+          </div>
+        </div>`;
+    }).filter(Boolean).join("");
+
+    const team1Win = winner === slot.team1;
+    const team2Win = winner === slot.team2;
+    const slotClass = `bracket-slot${allSlotFinished ? " finished" : ""}${(tbd1 || tbd2) ? " tbd" : ""}${isGrandFinal ? " grand-final" : ""}`;
+
+    return `
+      <div class="${slotClass}">
+        ${label ? `<div class="slot-label">${label}</div>` : ""}
+        <div class="bsr">
+          <div class="bsr-side">
+            ${teamBadge(tbd1 ? null : team1)}
+            <span class="bsr-owner${team1Win ? " bsr-win" : ""}">${escapeHtml(tbd1 ? "TBD" : (team1?.owner || "?"))}</span>
+          </div>
+          <span class="bsr-sep">
+            ${hasScores
+              ? `<span class="bsr-score${team1Win ? " bsr-win" : ""}">${team1Goals}</span><span class="bsr-agg">agg</span><span class="bsr-score${team2Win ? " bsr-win" : ""}">${team2Goals}</span>`
+              : "vs"}
+          </span>
+          <div class="bsr-side bsr-right">
+            <span class="bsr-owner${team2Win ? " bsr-win" : ""}">${escapeHtml(tbd2 ? "TBD" : (team2?.owner || "?"))}</span>
+            ${teamBadge(tbd2 ? null : team2)}
+          </div>
+        </div>
+        ${editableLegs ? `<div class="bmt-legs">${editableLegs}</div>` : ""}
+        ${tied ? `<div class="bmt-note muted">Tied. Edit score to break tie.</div>` : ""}
+      </div>`;
+  };
+
+  const renderBracketSection = (label, rounds, keyPrefix) => `
+    <div class="bracket-section">
+      <div class="bracket-section-header">${label}</div>
+      <div class="bracket-rounds-row">
+        ${rounds.map((round, i) => `
+          <div class="bracket-round-col">
+            <div class="round-col-header">${keyPrefix} R${i + 1}</div>
+            <div class="round-col-slots">
+              ${round.map((slot) => renderSlot(slot)).join("")}
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>`;
+
+  const grandFinalHtml = bracket.grandFinal.match
+    ? `<div class="bracket-section">
+        <div class="bracket-section-header">Grand Final</div>
+        <div class="bracket-rounds-row">
+          <div class="bracket-round-col">
+            <div class="round-col-slots">
+              ${renderSlot(bracket.grandFinal.match, true)}
+              ${bracket.grandFinal.reset ? renderSlot(bracket.grandFinal.reset, false, true) : ""}
+            </div>
+          </div>
+        </div>
+      </div>`
+    : "";
+
+  content.innerHTML = `
+    <div class="bracket-layout">
+      ${renderBracketSection("Upper Bracket", bracket.upper.rounds, "UB")}
+      ${renderBracketSection("Lower Bracket", bracket.lower.rounds, "LB")}
+      ${grandFinalHtml}
+    </div>
+  `;
+
+  content.querySelectorAll("[data-save-playoff]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = button.closest(".playoff-leg");
+      const match = getById(KEYS.matches, button.dataset.savePlayoff);
+      save(KEYS.matches, {
+        ...match,
+        homeScore: Number(row.querySelector("[name=homeScore]").value),
+        awayScore: Number(row.querySelector("[name=awayScore]").value),
+        status: "finished"
+      });
+      advancePlayoffRound(season.id);
+      render();
+    });
+  });
+}
+
 function finishSeason() {
   const standings = calculateStandings(season.id);
+  const playoffEnabled = league.settings.playoff?.enabled;
+
+  if (playoffEnabled) {
+    save(KEYS.seasons, { ...season, status: "playoff_setup" });
+    activeTab = "playoff";
+    render();
+    return;
+  }
+
   const finished = save(KEYS.seasons, {
     ...season,
     status: "finished",
