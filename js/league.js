@@ -15,6 +15,11 @@ function render() {
   const teams = getAll(KEYS.teams).filter((team) => team.leagueId === league.id && team.status === "active" && team.owner);
   const seasons = getAll(KEYS.seasons).filter((season) => season.leagueId === league.id).sort((a, b) => b.number - a.number);
   const champions = Object.fromEntries(teams.map((team) => [team.id, team]));
+  const playoffSettings = league.settings.playoff ?? {
+    enabled: false,
+    teamsCount: 4,
+    formatPerRound: { upperEarly: 1, upperFinal: 1, lowerEarly: 1, lowerFinal: 1, grandFinal: 1 }
+  };
 
   app.innerHTML = `
     <div class="two-col">
@@ -57,6 +62,43 @@ function render() {
                 <option value="true" ${league.settings.continuousSeasons ? "selected" : ""}>On</option>
               </select>
             </div>
+            <div class="field">
+              <label>Playoff</label>
+              <select name="playoffEnabled">
+                <option value="false" ${!playoffSettings.enabled ? "selected" : ""}>Off</option>
+                <option value="true" ${playoffSettings.enabled ? "selected" : ""}>On</option>
+              </select>
+            </div>
+            <div id="playoffConfig" ${!playoffSettings.enabled ? 'style="display:none"' : ""}>
+              <div class="field">
+                <label>Teams in playoff</label>
+                <select name="playoffTeamsCount">
+                  <option value="4" ${playoffSettings.teamsCount === 4 ? "selected" : ""}>Top 4</option>
+                  <option value="6" ${playoffSettings.teamsCount === 6 ? "selected" : ""}>Top 6</option>
+                  <option value="8" ${playoffSettings.teamsCount === 8 ? "selected" : ""}>Top 8</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>UB early rounds (legs)</label>
+                <input name="fmtUpperEarly" type="number" min="1" max="3" value="${playoffSettings.formatPerRound.upperEarly}">
+              </div>
+              <div class="field">
+                <label>UB Final (legs)</label>
+                <input name="fmtUpperFinal" type="number" min="1" max="3" value="${playoffSettings.formatPerRound.upperFinal}">
+              </div>
+              <div class="field">
+                <label>LB early rounds (legs)</label>
+                <input name="fmtLowerEarly" type="number" min="1" max="3" value="${playoffSettings.formatPerRound.lowerEarly}">
+              </div>
+              <div class="field">
+                <label>LB Final (legs)</label>
+                <input name="fmtLowerFinal" type="number" min="1" max="3" value="${playoffSettings.formatPerRound.lowerFinal}">
+              </div>
+              <div class="field">
+                <label>Grand Final (legs)</label>
+                <input name="fmtGrandFinal" type="number" min="1" max="3" value="${playoffSettings.formatPerRound.grandFinal}">
+              </div>
+            </div>
             <button class="btn" type="submit">Save</button>
           </form>
         </section>
@@ -75,6 +117,12 @@ function render() {
     window.location.href = `season.html?id=${season.id}`;
   });
 
+  const playoffEnabledSelect = document.querySelector("[name=playoffEnabled]");
+  const playoffConfigDiv = document.getElementById("playoffConfig");
+  playoffEnabledSelect?.addEventListener("change", () => {
+    playoffConfigDiv.style.display = playoffEnabledSelect.value === "true" ? "" : "none";
+  });
+
   document.getElementById("settingsForm").addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -82,7 +130,18 @@ function render() {
       ...league,
       settings: {
         meetingsPerSeason: Number(data.get("meetingsPerSeason")),
-        continuousSeasons: data.get("continuousSeasons") === "true"
+        continuousSeasons: data.get("continuousSeasons") === "true",
+        playoff: {
+          enabled: data.get("playoffEnabled") === "true",
+          teamsCount: Number(data.get("playoffTeamsCount")) || 4,
+          formatPerRound: {
+            upperEarly: Number(data.get("fmtUpperEarly")) || 1,
+            upperFinal: Number(data.get("fmtUpperFinal")) || 1,
+            lowerEarly: Number(data.get("fmtLowerEarly")) || 1,
+            lowerFinal: Number(data.get("fmtLowerFinal")) || 1,
+            grandFinal: Number(data.get("fmtGrandFinal")) || 1
+          }
+        }
       }
     });
     render();
