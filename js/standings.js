@@ -3,7 +3,10 @@ import { KEYS, getAll, getById } from "./storage.js";
 export function calculateStandings(seasonId) {
   const season = getById(KEYS.seasons, seasonId);
   if (!season) return [];
-  const teams = getAll(KEYS.teams).filter((team) => team.leagueId === season.leagueId && team.status === "active" && team.owner);
+  const allTeamsMap = Object.fromEntries(
+    getAll(KEYS.teams).filter((team) => team.leagueId === season.leagueId).map((team) => [team.id, team])
+  );
+  const teams = (season.teamIds || []).map((id) => allTeamsMap[id]).filter(Boolean);
   const finished = getAll(KEYS.matches).filter((match) => match.seasonId === seasonId && match.status === "finished" && match.matchType !== "playoff");
 
   return teams.map((team) => {

@@ -18,7 +18,7 @@ const app = document.getElementById("app");
 let activeTab = "schedule";
 
 function teamMap() {
-  return Object.fromEntries(getAll(KEYS.teams).filter((team) => team.leagueId === league.id && team.status === "active" && team.owner).map((team) => [team.id, team]));
+  return Object.fromEntries(getAll(KEYS.teams).filter((team) => team.leagueId === league.id).map((team) => [team.id, team]));
 }
 
 function render() {

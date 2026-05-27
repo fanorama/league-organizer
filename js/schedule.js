@@ -110,6 +110,7 @@ export function createSeasonWithSchedule(league, teams) {
     leagueId: league.id,
     number: seasons.length + 1,
     status: "setup",
+    teamIds: teams.map((team) => team.id),
     champion: null,
     createdAt: new Date().toISOString(),
     startedAt: null,

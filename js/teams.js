@@ -1,5 +1,5 @@
 import { COMPETITIONS, fetchClubs } from "./api.js";
-import { KEYS, getAll, getById, save } from "./storage.js";
+import { KEYS, getAll, getById, remove, save } from "./storage.js";
 import { badge, escapeHtml, qs, renderShell, requireEntity, teamBadge } from "./ui.js";
 import { openWheelModal } from "./wheel.js";
 
@@ -8,6 +8,7 @@ const league = getById(KEYS.leagues, leagueId);
 renderShell("leagues", league ? `Teams - ${league.name}` : "Teams", league ? `<a class="btn" href="league.html?id=${league.id}">Back</a>` : "");
 
 const app = document.getElementById("app");
+let assigningTeamId = null;
 
 function render() {
   if (!requireEntity(league, "League not found.")) return;
@@ -37,24 +38,46 @@ function render() {
                     <div class="muted">${escapeHtml(team.shortName)} · owner: ${escapeHtml(team.owner || "unassigned")}</div>
                   </div>
                 </div>
-                ${badge("active")}
+                <div style="display:flex;align-items:center;gap:8px">
+                  ${badge("active")}
+                  <button class="btn btn-xs danger" data-demote="${escapeHtml(team.id)}" type="button">Unassign</button>
+                </div>
               </div>
             `).join("")}</div>` : `<div class="empty">No active teams yet. Spin the wheel to add participants.</div>`}
           </section>
           <section>
             <h3>Pool Referensi</h3>
-            ${poolTeams.length ? `<div class="list">${poolTeams.map((team) => `
-              <div class="list-row">
-                <div class="team-line">
-                  ${teamBadge(team)}
-                  <div>
-                    <div class="team-name">${escapeHtml(team.name)}</div>
-                    <div class="muted">${escapeHtml(team.shortName)} · owner: ${escapeHtml(team.owner || "unassigned")}</div>
+            ${poolTeams.length ? `<div class="list">${poolTeams.map((team) => {
+              const isAssigning = assigningTeamId === team.id;
+              return `
+              <div class="list-row" style="flex-direction:column;align-items:stretch">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <div class="team-line">
+                    ${teamBadge(team)}
+                    <div>
+                      <div class="team-name">${escapeHtml(team.name)}</div>
+                      <div class="muted">${escapeHtml(team.shortName)}</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    ${badge("pool")}
+                    <button class="btn btn-xs" data-assign="${escapeHtml(team.id)}" type="button">${isAssigning ? "Cancel" : "Assign"}</button>
+                    <button class="btn btn-xs danger" data-delete="${escapeHtml(team.id)}" type="button">Remove</button>
                   </div>
                 </div>
-                ${badge("pool")}
-              </div>
-            `).join("")}</div>` : `<div class="empty">No pool teams. Add teams manually or import clubs.</div>`}
+                ${isAssigning ? `
+                  <form data-assign-form="${escapeHtml(team.id)}" class="list" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+                    <div style="display:flex;gap:8px;align-items:flex-end">
+                      <div class="field" style="flex:1;margin:0">
+                        <label>Owner name</label>
+                        <input name="owner" required placeholder="Owner name" autofocus>
+                      </div>
+                      <button class="btn primary btn-xs" type="submit" style="margin-bottom:1px">Assign</button>
+                    </div>
+                  </form>
+                ` : ""}
+              </div>`;
+            }).join("")}</div>` : `<div class="empty">No pool teams. Add teams manually or import clubs.</div>`}
           </section>
         </div>
       </section>
@@ -96,6 +119,43 @@ function render() {
       externalId: null
     });
     render();
+  });
+
+  app.querySelectorAll("[data-demote]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const team = getById(KEYS.teams, btn.dataset.demote);
+      if (!team) return;
+      save(KEYS.teams, { ...team, status: "pool", owner: null });
+      assigningTeamId = null;
+      render();
+    });
+  });
+
+  app.querySelectorAll("[data-assign]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      assigningTeamId = assigningTeamId === btn.dataset.assign ? null : btn.dataset.assign;
+      render();
+    });
+  });
+
+  app.querySelectorAll("[data-assign-form]").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const team = getById(KEYS.teams, form.dataset.assignForm);
+      if (!team) return;
+      const owner = new FormData(form).get("owner").trim();
+      save(KEYS.teams, { ...team, owner, status: "active" });
+      assigningTeamId = null;
+      render();
+    });
+  });
+
+  app.querySelectorAll("[data-delete]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!confirm(`Remove "${btn.closest(".list-row").querySelector(".team-name").textContent}" from league?`)) return;
+      remove(KEYS.teams, btn.dataset.delete);
+      render();
+    });
   });
 
   document.getElementById("wheelButton").addEventListener("click", () => {
