@@ -1,4 +1,4 @@
-import { KEYS, getAll, save, setAll } from "./storage.js";
+import { KEYS, createId, getAll, save, setAll } from "./storage.js";
 
 function shuffle(items) {
   const copy = [...items];
@@ -45,7 +45,7 @@ export function replaceSeasonSchedule(season, teamIds, meetingsPerSeason) {
   const existing = getAll(KEYS.matches).filter((match) => match.seasonId !== season.id);
   const generated = generateRoundRobin(teamIds, meetingsPerSeason).flatMap((round, index) => (
     round.map((match) => ({
-      id: crypto.randomUUID(),
+      id: createId(),
       seasonId: season.id,
       matchday: index + 1,
       homeTeamId: match.homeTeamId,

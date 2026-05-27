@@ -5,13 +5,18 @@ export function qs(name) {
 export function renderShell(active, title, actions = "") {
   document.body.innerHTML = `
     <div class="app-shell">
-      <aside class="sidebar">
-        <a class="brand" href="leagues.html"><span class="brand-mark">⚽</span><span>LeagueOrg</span></a>
-        <nav class="nav">
-          <a class="${active === "leagues" ? "active" : ""}" href="leagues.html">🏟️ Leagues</a>
-          <a class="${active === "settings" ? "active" : ""}" href="settings.html">⚙️ Settings</a>
-        </nav>
-      </aside>
+      <header class="app-header">
+        <div class="app-header-inner">
+          <a class="brand" href="leagues.html">
+            <span class="brand-mark">⚽</span>
+            <span class="brand-name">LeagueOrg</span>
+          </a>
+          <nav class="top-nav">
+            <a class="${active === "leagues" ? "active" : ""}" href="leagues.html">Leagues</a>
+            <a class="${active === "settings" ? "active" : ""}" href="settings.html">Settings</a>
+          </nav>
+        </div>
+      </header>
       <div class="main">
         <header class="topbar">
           <h1>${title}</h1>
