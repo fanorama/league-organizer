@@ -305,9 +305,10 @@ function renderPlayoffBracket(content) {
       const home = teams[match.homeTeamId];
       const away = teams[match.awayTeamId];
       const legIndex = slotMatches.indexOf(match);
+      const legLabel = match.bracketSlot?.isExtraLeg ? "Extra" : `Leg ${legIndex + 1}`;
       return `
         <div class="playoff-leg">
-          <span class="leg-label">Leg ${legIndex + 1}</span>
+          <span class="leg-label">${legLabel}</span>
           <div class="leg-history-row">
             ${teamBadge(home)}
             <span class="leg-score">${match.homeScore ?? 0} - ${match.awayScore ?? 0}</span>
@@ -320,9 +321,10 @@ function renderPlayoffBracket(content) {
       if (!canEdit || match.status === "finished") return "";
       const home = teams[match.homeTeamId];
       const away = teams[match.awayTeamId];
+      const legLabel = match.bracketSlot?.isExtraLeg ? "Extra" : `Leg ${legIndex + 1}`;
       return `
         <div class="playoff-leg" data-match-id="${match.id}">
-          ${isMultiLeg ? `<span class="leg-label">Leg ${legIndex + 1}</span>` : ""}
+          ${isMultiLeg ? `<span class="leg-label">${legLabel}</span>` : ""}
           <div class="leg-input-row">
             ${teamBadge(home)}
             <input class="score-input" name="homeScore" type="number" min="0" value="${match.homeScore ?? ""}">
@@ -357,7 +359,7 @@ function renderPlayoffBracket(content) {
           </div>
         </div>
         ${(finishedLegRows || editableLegs) ? `<div class="bmt-legs">${finishedLegRows}${editableLegs}</div>` : ""}
-        ${tied ? `<div class="bmt-note muted">Tied. Edit score to break tie.</div>` : ""}
+        ${tied ? `<div class="bmt-note muted">Masih imbang. Extra leg akan ditambahkan.</div>` : ""}
       </div>`;
   };
 

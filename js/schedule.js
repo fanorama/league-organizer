@@ -133,29 +133,51 @@ export function resolveMultiLegWinnerPublic(slot, matchRecords) {
   const finished = matchRecords.filter((match) => match.status === "finished");
   if (finished.length < matchRecords.length) return null;
 
+  const lastFinished = finished[finished.length - 1];
+  if (lastFinished.bracketSlot?.isExtraLeg) {
+    const team1IsHome = lastFinished.homeTeamId === slot.team1;
+    const g1 = team1IsHome ? lastFinished.homeScore : lastFinished.awayScore;
+    const g2 = team1IsHome ? lastFinished.awayScore : lastFinished.homeScore;
+    if (g1 > g2) return slot.team1;
+    if (g2 > g1) return slot.team2;
+    return null;
+  }
+
   let goals1 = 0;
   let goals2 = 0;
-  let awayGoals1 = 0;
-  let awayGoals2 = 0;
 
   finished.forEach((match) => {
     const team1IsHome = match.homeTeamId === slot.team1;
     if (team1IsHome) {
       goals1 += match.homeScore;
       goals2 += match.awayScore;
-      awayGoals2 += match.awayScore;
     } else {
       goals1 += match.awayScore;
       goals2 += match.homeScore;
-      awayGoals1 += match.awayScore;
     }
   });
 
   if (goals1 > goals2) return slot.team1;
   if (goals2 > goals1) return slot.team2;
-  if (awayGoals1 > awayGoals2) return slot.team1;
-  if (awayGoals2 > awayGoals1) return slot.team2;
   return null;
+}
+
+function addExtraLeg(season, slot, bracketName, roundIndex, slotIndex) {
+  const leg = slot.matchIds.length + 1;
+  const match = save(KEYS.matches, {
+    seasonId: season.id,
+    matchday: 99,
+    homeTeamId: slot.team1,
+    awayTeamId: slot.team2,
+    homeScore: null,
+    awayScore: null,
+    status: "scheduled",
+    originalMatchday: null,
+    scheduledDate: null,
+    matchType: "playoff",
+    bracketSlot: { bracket: bracketName, round: roundIndex, slot: slotIndex, leg, isExtraLeg: true }
+  });
+  slot.matchIds.push(match.id);
 }
 
 function generatePlayoffMatchIds(season, slot, legCount, bracketName, roundIndex, slotIndex) {
@@ -330,8 +352,15 @@ export function advancePlayoffRound(seasonId) {
     if (!slot || slot.bye || !slot.team1 || !slot.team2) return;
 
     const matchRecords = slot.matchIds.map((id) => allMatches[id]).filter(Boolean);
+    const allFinished = matchRecords.length > 0 && matchRecords.every((m) => m.status === "finished");
     const winner = resolveMultiLegWinnerPublic(slot, matchRecords);
-    if (!winner) return;
+    if (!winner) {
+      if (allFinished) {
+        addExtraLeg(season, slot, route.from.b, route.from.r, route.from.s);
+        updated = true;
+      }
+      return;
+    }
 
     const loser = winner === slot.team1 ? slot.team2 : slot.team1;
     if (route.winnerTo !== "eliminated" && fillDestination(season, bracket, route.winnerTo, winner)) updated = true;
@@ -341,6 +370,7 @@ export function advancePlayoffRound(seasonId) {
   const grandFinal = bracket.grandFinal.match;
   if (grandFinal?.team1 && grandFinal?.team2) {
     const matches = grandFinal.matchIds.map((id) => allMatches[id]).filter(Boolean);
+    const allFinished = matches.length > 0 && matches.every((m) => m.status === "finished");
     const winner = resolveMultiLegWinnerPublic(grandFinal, matches);
     if (winner) {
       const upperWinner = grandFinal.team1;
@@ -362,17 +392,24 @@ export function advancePlayoffRound(seasonId) {
         finishPlayoff(seasonId, winner);
         return;
       }
+    } else if (allFinished) {
+      addExtraLeg(season, grandFinal, "grand_final", 0, 0);
+      updated = true;
     }
   }
 
   const reset = bracket.grandFinal.reset;
   if (reset?.team1 && reset?.team2) {
     const matches = reset.matchIds.map((id) => allMatches[id]).filter(Boolean);
+    const allResetFinished = matches.length > 0 && matches.every((m) => m.status === "finished");
     const winner = resolveMultiLegWinnerPublic(reset, matches);
     if (winner) {
       save(KEYS.seasons, { ...season, bracket });
       finishPlayoff(seasonId, winner);
       return;
+    } else if (allResetFinished) {
+      addExtraLeg(season, reset, "grand_final_reset", 0, 0);
+      updated = true;
     }
   }
 
