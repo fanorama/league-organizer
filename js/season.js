@@ -36,7 +36,7 @@ function render() {
     return;
   }
 
-  const showPlayoffTab = ["playoff_setup", "playoff_active"].includes(season.status);
+  const showPlayoffTab = ["playoff_setup", "playoff_active"].includes(season.status) || (season.status === "finished" && !!season.bracket);
   if (!showPlayoffTab && activeTab === "playoff") activeTab = "schedule";
 
   app.innerHTML = `
@@ -219,7 +219,7 @@ function renderPlayoff() {
 
   if (season.status === "playoff_setup") {
     renderPlayoffSetup(content);
-  } else if (season.status === "playoff_active") {
+  } else if (season.status === "playoff_active" || season.status === "finished") {
     renderPlayoffBracket(content);
   } else {
     content.innerHTML = `<div class="empty">Playoff selesai.</div>`;
@@ -301,6 +301,21 @@ function renderPlayoffBracket(content) {
     const team2Goals = finishedMatches.reduce((sum, m) =>
       sum + (m.homeTeamId === slot.team2 ? (m.homeScore ?? 0) : (m.awayScore ?? 0)), 0);
 
+    const finishedLegRows = isMultiLeg ? finishedMatches.map((match) => {
+      const home = teams[match.homeTeamId];
+      const away = teams[match.awayTeamId];
+      const legIndex = slotMatches.indexOf(match);
+      return `
+        <div class="playoff-leg">
+          <span class="leg-label">Leg ${legIndex + 1}</span>
+          <div class="leg-history-row">
+            ${teamBadge(home)}
+            <span class="leg-score">${match.homeScore ?? 0} - ${match.awayScore ?? 0}</span>
+            ${teamBadge(away)}
+          </div>
+        </div>`;
+    }).join("") : "";
+
     const editableLegs = slotMatches.map((match, legIndex) => {
       if (!canEdit || match.status === "finished") return "";
       const home = teams[match.homeTeamId];
@@ -341,7 +356,7 @@ function renderPlayoffBracket(content) {
             ${teamBadge(tbd2 ? null : team2)}
           </div>
         </div>
-        ${editableLegs ? `<div class="bmt-legs">${editableLegs}</div>` : ""}
+        ${(finishedLegRows || editableLegs) ? `<div class="bmt-legs">${finishedLegRows}${editableLegs}</div>` : ""}
         ${tied ? `<div class="bmt-note muted">Tied. Edit score to break tie.</div>` : ""}
       </div>`;
   };

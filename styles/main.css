@@ -914,6 +914,21 @@ tbody tr:first-child td:first-child {
   font-size: 0.85rem;
 }
 
+.leg-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.leg-score {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  padding: 0 4px;
+}
+
 .bmt-note {
   font-size: 0.75rem;
   padding: 4px 10px 8px;
