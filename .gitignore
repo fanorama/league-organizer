@@ -25,3 +25,6 @@ Thumbs.db
 # Claude Code
 .agents/
 skills-lock.json
+
+# Other
+docs/
