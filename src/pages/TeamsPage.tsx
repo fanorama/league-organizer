@@ -5,9 +5,11 @@ import { Shell } from '../components/Shell';
 import { SpinWheel } from '../components/SpinWheel';
 import { TeamBadge } from '../components/TeamBadge';
 import { COMPETITIONS, fetchClubs } from '../lib/api';
+import { canAssignPlayerToLeague, getAssignablePlayersForLeague } from '../lib/playerAssignment';
 import { getSettings } from '../lib/storage';
 import type { ClubFromApi } from '../lib/types';
 import { useLeagueStore } from '../store/useLeagueStore';
+import { usePlayerStore } from '../store/usePlayerStore';
 import { useTeamStore } from '../store/useTeamStore';
 
 export function TeamsPage() {
@@ -20,13 +22,18 @@ export function TeamsPage() {
   const removeTeam = useTeamStore((s) => s.removeTeam);
   const unassignTeam = useTeamStore((s) => s.unassignTeam);
   const refresh = useTeamStore((s) => s.refresh);
+  const players = usePlayerStore((s) => s.players);
+  const addPlayer = usePlayerStore((s) => s.addPlayer);
   const [assigningTeamId, setAssigningTeamId] = useState<string | null>(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState('');
+  const [newPlayerName, setNewPlayerName] = useState('');
   const [showWheel, setShowWheel] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const currentLeagueId = leagueId || '';
   const teams = useMemo(() => allTeams.filter((team) => team.leagueId === currentLeagueId), [allTeams, currentLeagueId]);
   const activeTeams = useMemo(() => teams.filter((team) => team.status === 'active'), [teams]);
   const poolTeams = useMemo(() => teams.filter((team) => (team.status || 'pool') === 'pool'), [teams]);
+  const assignablePlayers = useMemo(() => getAssignablePlayersForLeague(players, allTeams, currentLeagueId), [players, allTeams, currentLeagueId]);
 
   if (!league || !leagueId) {
     return (
@@ -57,9 +64,17 @@ export function TeamsPage() {
     event.preventDefault();
     const team = teams.find((candidate) => candidate.id === teamId);
     if (!team) return;
-    const owner = String(new FormData(event.currentTarget).get('owner')).trim();
-    updateTeam({ ...team, owner, status: 'active' });
+    const trimmedNewPlayerName = newPlayerName.trim();
+    if (selectedPlayerId === '__new__' && !trimmedNewPlayerName) return;
+    if (selectedPlayerId !== '__new__' && !canAssignPlayerToLeague(selectedPlayerId, allTeams, currentLeagueId)) return;
+    const player = selectedPlayerId === '__new__'
+      ? addPlayer({ name: trimmedNewPlayerName, createdAt: new Date().toISOString() })
+      : assignablePlayers.find((candidate) => candidate.id === selectedPlayerId);
+    if (!player) return;
+    updateTeam({ ...team, ownerId: player.id, owner: player.name, status: 'active' });
     setAssigningTeamId(null);
+    setSelectedPlayerId('');
+    setNewPlayerName('');
   }
 
   function handleRemove(teamId: string, name: string) {
@@ -101,7 +116,9 @@ export function TeamsPage() {
                         <TeamBadge team={team} />
                         <div>
                           <div className="team-name">{team.name}</div>
-                          <div className="muted">{team.shortName} · owner: {team.owner || 'unassigned'}</div>
+                          <div className="muted">
+                            {team.shortName} · owner: {players.find((player) => player.id === team.ownerId)?.name ?? team.owner ?? 'unassigned'}
+                          </div>
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -135,7 +152,15 @@ export function TeamsPage() {
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <Badge status="pool" />
-                            <button className="btn btn-xs" type="button" onClick={() => setAssigningTeamId(isAssigning ? null : team.id)}>
+                            <button
+                              className="btn btn-xs"
+                              type="button"
+                              onClick={() => {
+                                setAssigningTeamId(isAssigning ? null : team.id);
+                                setSelectedPlayerId('');
+                                setNewPlayerName('');
+                              }}
+                            >
                               {isAssigning ? 'Cancel' : 'Assign'}
                             </button>
                             <button className="btn btn-xs danger" type="button" onClick={() => handleRemove(team.id, team.name)}>
@@ -147,9 +172,29 @@ export function TeamsPage() {
                           <form className="list" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }} onSubmit={(event) => handleAssign(event, team.id)}>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                               <div className="field" style={{ flex: 1, margin: 0 }}>
-                                <label>Owner name</label>
-                                <input name="owner" required placeholder="Owner name" autoFocus />
+                                <label>Owner</label>
+                                <select value={selectedPlayerId} onChange={(event) => setSelectedPlayerId(event.target.value)} required>
+                                  <option value="">-- Pilih player --</option>
+                                  {assignablePlayers.map((player) => (
+                                    <option key={player.id} value={player.id}>
+                                      {player.name}
+                                    </option>
+                                  ))}
+                                  <option value="__new__">+ Tambah player baru</option>
+                                </select>
                               </div>
+                              {selectedPlayerId === '__new__' ? (
+                                <div className="field" style={{ flex: 1, margin: 0 }}>
+                                  <label>Nama player baru</label>
+                                  <input
+                                    value={newPlayerName}
+                                    onChange={(event) => setNewPlayerName(event.target.value)}
+                                    required
+                                    placeholder="Nama player"
+                                    autoFocus
+                                  />
+                                </div>
+                              ) : null}
                               <button className="btn primary btn-xs" type="submit" style={{ marginBottom: 1 }}>
                                 Assign
                               </button>

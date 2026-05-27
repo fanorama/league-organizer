@@ -34,7 +34,7 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
   unassignTeam: (id) => {
     const team = get().teams.find((candidate) => candidate.id === id);
     if (!team) return;
-    save<Team>(KEYS.teams, { ...team, status: 'pool', owner: null });
+    save<Team>(KEYS.teams, { ...team, status: 'pool', owner: null, ownerId: null });
     set({ teams: getAll<Team>(KEYS.teams) });
   },
 

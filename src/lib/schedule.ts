@@ -108,11 +108,17 @@ export function replaceSeasonSchedule(season: Season, teamIds: string[], meeting
 
 export function createSeasonWithSchedule(league: League, teams: Team[]): Season {
   const seasons = getAll(KEYS.seasons).filter((season) => season.leagueId === league.id);
+  const players = getAll(KEYS.players);
+  const playersById = Object.fromEntries(players.map((player) => [player.id, player]));
   const season = save(KEYS.seasons, {
     leagueId: league.id,
     number: seasons.length + 1,
     status: "setup",
     teamIds: teams.map((team) => team.id),
+    ownerSnapshots: Object.fromEntries(teams.map((team) => {
+      const player = team.ownerId ? playersById[team.ownerId] : null;
+      return [team.id, { playerId: team.ownerId || null, playerName: player?.name || team.owner || null }];
+    })),
     champion: null,
     createdAt: new Date().toISOString(),
     startedAt: null,
@@ -432,7 +438,7 @@ export function finishPlayoff(seasonId: string, championTeamId: string): void {
   });
 
   if (league.settings.continuousSeasons) {
-    const teams = getAll(KEYS.teams).filter((team) => team.leagueId === league.id && team.status === "active" && team.owner);
+    const teams = getAll(KEYS.teams).filter((team) => team.leagueId === league.id && team.status === "active" && team.ownerId);
     createSeasonWithSchedule(league, teams);
   }
 }

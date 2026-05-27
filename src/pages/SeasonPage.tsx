@@ -28,7 +28,7 @@ export function SeasonPage() {
 
   const matches = useMemo(() => allMatches.filter((match) => match.seasonId === seasonId), [allMatches, seasonId]);
   const teams = useMemo(() => allTeams.filter((team) => team.leagueId === leagueId), [allTeams, leagueId]);
-  const activeTeams = useMemo(() => teams.filter((team) => team.status === 'active' && team.owner), [teams]);
+  const activeTeams = useMemo(() => teams.filter((team) => team.status === 'active' && team.ownerId), [teams]);
   const teamById = useMemo(() => Object.fromEntries(teams.map((team) => [team.id, team])), [teams]);
   const leagueMatches = matches.filter((match) => (match.matchType || 'league') === 'league');
   const allFinished = leagueMatches.length > 0 && leagueMatches.every((match) => match.status === 'finished');
@@ -117,7 +117,7 @@ export function SeasonPage() {
         ) : null}
       </div>
       <section id="tabContent">
-        {safeActiveTab === 'standings' ? <StandingsTab seasonId={currentSeason.id} /> : null}
+        {safeActiveTab === 'standings' ? <StandingsTab season={currentSeason} /> : null}
         {safeActiveTab === 'playoff' ? <PlayoffTab season={currentSeason} league={currentLeague} teams={teamById} refresh={() => { refreshSeasons(); refreshMatches(); }} /> : null}
         {safeActiveTab === 'schedule' ? <ScheduleTab season={currentSeason} teams={teamById} matches={leagueMatches} updateMatch={updateMatch} refreshMatches={refreshMatches} /> : null}
       </section>
@@ -192,7 +192,7 @@ function MatchCard({
   return (
     <article className="match-card">
       <div className="match-main">
-        <TeamSummary team={home} />
+        <TeamSummary team={home} season={season} />
         <div className="score-box">
           {canEdit ? (
             <>
@@ -208,7 +208,7 @@ function MatchCard({
             </>
           )}
         </div>
-        <TeamSummary team={away} side="away" />
+        <TeamSummary team={away} season={season} side="away" />
       </div>
       <div className="actions">
         <Badge status={match.status} />
@@ -227,11 +227,16 @@ function MatchCard({
   );
 }
 
-function TeamSummary({ team, side = 'home' }: { team?: Team; side?: 'home' | 'away' }) {
+function getSeasonOwnerName(season: Season, teamId: string | null | undefined): string {
+  if (!teamId) return 'unassigned';
+  return season.ownerSnapshots?.[teamId]?.playerName || 'unassigned';
+}
+
+function TeamSummary({ team, season, side = 'home' }: { team?: Team; season: Season; side?: 'home' | 'away' }) {
   const details = (
     <div>
       <div className="team-name">{team?.name || 'Unknown'}</div>
-      <div className="muted">owner: {team?.owner || 'unassigned'}</div>
+      <div className="muted">owner: {getSeasonOwnerName(season, team?.id)}</div>
     </div>
   );
   return side === 'away' ? (
@@ -247,8 +252,8 @@ function TeamSummary({ team, side = 'home' }: { team?: Team; side?: 'home' | 'aw
   );
 }
 
-function StandingsTab({ seasonId }: { seasonId: string }) {
-  const rows = calculateStandings(seasonId);
+function StandingsTab({ season }: { season: Season }) {
+  const rows = calculateStandings(season.id);
 
   return (
     <section className="panel">
@@ -280,7 +285,7 @@ function StandingsTab({ seasonId }: { seasonId: string }) {
                     <span className="team-name">{row.team.name}</span>
                   </div>
                 </td>
-                <td>{row.team.owner || 'unassigned'}</td>
+                <td>{getSeasonOwnerName(season, row.team.id)}</td>
                 <td className="center">{row.played}</td>
                 <td className="center">{row.won}</td>
                 <td className="center">{row.drawn}</td>
@@ -450,7 +455,7 @@ function PlayoffSlotCard({
       <div className="bsr">
         <div className="bsr-side">
           <TeamBadge team={tbd1 ? null : team1} />
-          <span className={`bsr-owner${team1Win ? ' bsr-win' : ''}`}>{tbd1 ? 'TBD' : team1?.owner || '?'}</span>
+          <span className={`bsr-owner${team1Win ? ' bsr-win' : ''}`}>{tbd1 ? 'TBD' : getSeasonOwnerName(season, slot.team1)}</span>
         </div>
         <span className="bsr-sep">
           {hasScores ? (
@@ -464,7 +469,7 @@ function PlayoffSlotCard({
           )}
         </span>
         <div className="bsr-side bsr-right">
-          <span className={`bsr-owner${team2Win ? ' bsr-win' : ''}`}>{tbd2 ? 'TBD' : team2?.owner || '?'}</span>
+          <span className={`bsr-owner${team2Win ? ' bsr-win' : ''}`}>{tbd2 ? 'TBD' : getSeasonOwnerName(season, slot.team2)}</span>
           <TeamBadge team={tbd2 ? null : team2} />
         </div>
       </div>
