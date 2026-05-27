@@ -127,7 +127,7 @@ function renderMatch(match, teams) {
   return `
     <article class="match-card">
       <div class="match-main">
-        <div class="team-line">${teamBadge(home)}<span class="team-name">${escapeHtml(home?.name || "Unknown")}</span></div>
+        ${renderTeamSummary(home)}
         <div class="score-box">
           ${canEdit ? `
             <input class="score-input" name="homeScore" type="number" min="0" value="${match.homeScore ?? ""}">
@@ -135,7 +135,7 @@ function renderMatch(match, teams) {
             <input class="score-input" name="awayScore" type="number" min="0" value="${match.awayScore ?? ""}">
           ` : `<span>${match.homeScore ?? ""}</span><span>${match.status === "finished" ? "-" : "vs"}</span><span>${match.awayScore ?? ""}</span>`}
         </div>
-        <div class="team-line away"><span class="team-name">${escapeHtml(away?.name || "Unknown")}</span>${teamBadge(away)}</div>
+        ${renderTeamSummary(away, "away")}
       </div>
       <div class="actions">
         ${badge(match.status)}
@@ -146,6 +146,18 @@ function renderMatch(match, teams) {
   `;
 }
 
+function renderTeamSummary(team, side = "home") {
+  const details = `
+    <div>
+      <div class="team-name">${escapeHtml(team?.name || "Unknown")}</div>
+      <div class="muted">owner: ${escapeHtml(team?.owner || "unassigned")}</div>
+    </div>
+  `;
+  return side === "away"
+    ? `<div class="team-line away">${details}${teamBadge(team)}</div>`
+    : `<div class="team-line">${teamBadge(team)}${details}</div>`;
+}
+
 function renderStandings() {
   const rows = calculateStandings(season.id);
   document.getElementById("tabContent").innerHTML = `
@@ -154,7 +166,7 @@ function renderStandings() {
         <table>
           <thead>
             <tr>
-              <th>#</th><th>Team</th><th class="center">P</th><th class="center">W</th><th class="center">D</th><th class="center">L</th><th class="center">GF</th><th class="center">GA</th><th class="center">GD</th><th class="center">Pts</th><th>Form</th>
+              <th>#</th><th>Team</th><th>Owner</th><th class="center">P</th><th class="center">W</th><th class="center">D</th><th class="center">L</th><th class="center">GF</th><th class="center">GA</th><th class="center">GD</th><th class="center">Pts</th><th>Form</th>
             </tr>
           </thead>
           <tbody>
@@ -162,6 +174,7 @@ function renderStandings() {
               <tr>
                 <td>${index + 1}</td>
                 <td><div class="team-line">${teamBadge(row.team)}<span class="team-name">${escapeHtml(row.team.name)}</span></div></td>
+                <td>${escapeHtml(row.team.owner || "unassigned")}</td>
                 <td class="center">${row.played}</td>
                 <td class="center">${row.won}</td>
                 <td class="center">${row.drawn}</td>

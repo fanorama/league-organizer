@@ -106,6 +106,9 @@ function render() {
 
 function openImportModal() {
   const modal = document.getElementById("importModal");
+  let currentClubs = [];
+  const selectedIds = new Set();
+  let searchTimeout;
   modal.className = "modal open";
   modal.innerHTML = `
     <div class="modal-card">
@@ -124,8 +127,11 @@ function openImportModal() {
             <input id="clubSearch" placeholder="Club name">
           </div>
         </div>
-        <button id="loadClubs" class="btn primary" type="button">Load clubs</button>
+        <div id="clubActions"></div>
         <div id="clubList" class="list"></div>
+        <div id="importFooter" class="import-footer" style="display:none;position:sticky;bottom:0;background:var(--panel);padding-top:12px">
+          <button id="addSelected" class="btn primary" type="button">Add 0 selected</button>
+        </div>
       </div>
     </div>
   `;
@@ -133,52 +139,124 @@ function openImportModal() {
   modal.addEventListener("click", (event) => {
     if (event.target === modal) modal.className = "modal";
   });
-  modal.querySelector("#loadClubs").addEventListener("click", async () => {
+
+  function getPoolIds() {
+    return new Set(
+      getAll(KEYS.teams)
+        .filter((team) => team.leagueId === league.id && team.externalId)
+        .map((team) => team.externalId)
+    );
+  }
+
+  function updateFooter() {
     const list = modal.querySelector("#clubList");
+    const footer = modal.querySelector("#importFooter");
+    const btn = modal.querySelector("#addSelected");
+    const count = selectedIds.size;
+    footer.style.display = count > 0 ? "block" : "none";
+    btn.textContent = `Add ${count} selected`;
+    list.style.paddingBottom = count > 0 ? "56px" : "";
+  }
+
+  function renderClubs() {
+    const list = modal.querySelector("#clubList");
+    const actions = modal.querySelector("#clubActions");
+    const poolIds = getPoolIds();
+    const term = modal.querySelector("#clubSearch").value.toLowerCase();
+    const filtered = currentClubs.filter((club) => club.name.toLowerCase().includes(term));
+    const importable = filtered.filter((club) => !poolIds.has(club.id));
+
+    actions.innerHTML = importable.length
+      ? `<button id="selectAll" class="btn" type="button" style="margin-bottom:8px">Select all visible</button>`
+      : "";
+
+    if (!filtered.length) {
+      list.innerHTML = `<div class="empty">No clubs match your search.</div>`;
+      updateFooter();
+      return;
+    }
+
+    if (!importable.length) {
+      list.innerHTML = `<div class="empty">All clubs already in your pool.</div>`;
+      updateFooter();
+      return;
+    }
+
+    list.innerHTML = filtered.map((club) => {
+      const inPool = poolIds.has(club.id);
+      const checked = selectedIds.has(club.id);
+      return `
+        <label class="list-row${inPool ? " muted" : ""}" style="${inPool ? "opacity:.45;pointer-events:none" : ""}">
+          <input style="width:auto" type="checkbox" name="club" value="${escapeHtml(club.id)}" ${checked ? "checked" : ""} ${inPool ? "disabled" : ""}>
+          <span class="team-line">
+            ${club.logo ? `<span class="team-badge"><img src="${escapeHtml(club.logo)}" alt=""></span>` : `<span class="team-badge">${escapeHtml(club.shortName)}</span>`}
+            <span>${escapeHtml(club.name)}</span>
+          </span>
+          ${inPool ? `<span class="badge badge-pool">In pool</span>` : ""}
+        </label>
+      `;
+    }).join("");
+
+    actions.querySelector("#selectAll")?.addEventListener("click", () => {
+      importable.forEach((club) => selectedIds.add(club.id));
+      renderClubs();
+    });
+    list.querySelectorAll("input[type=checkbox]").forEach((checkbox) => {
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) selectedIds.add(checkbox.value);
+        else selectedIds.delete(checkbox.value);
+        updateFooter();
+      });
+    });
+    updateFooter();
+  }
+
+  async function loadCompetition(competitionId) {
+    const list = modal.querySelector("#clubList");
+    modal.querySelector("#clubActions").innerHTML = "";
     list.innerHTML = `<div class="empty">Loading clubs...</div>`;
     try {
-      const clubs = await fetchClubs(modal.querySelector("#competition").value);
-      const renderClubs = () => {
-        const term = modal.querySelector("#clubSearch").value.toLowerCase();
-        const filtered = clubs.filter((club) => club.name.toLowerCase().includes(term));
-        list.innerHTML = `
-          <form id="clubForm" class="list">
-            ${filtered.map((club) => `
-              <label class="list-row">
-                <span class="team-line">
-                  ${club.logo ? `<span class="team-badge"><img src="${escapeHtml(club.logo)}" alt=""></span>` : `<span class="team-badge">${escapeHtml(club.shortName)}</span>`}
-                  <span>${escapeHtml(club.name)}</span>
-                </span>
-                <input style="width:auto" type="checkbox" name="club" value="${escapeHtml(club.id)}">
-              </label>
-            `).join("")}
-            <button class="btn primary" type="submit">Add selected</button>
-          </form>
-        `;
-        list.querySelector("#clubForm").addEventListener("submit", (event) => {
-          event.preventDefault();
-          new FormData(event.currentTarget).getAll("club").forEach((id) => {
-            const club = clubs.find((candidate) => candidate.id === id);
-            save(KEYS.teams, {
-              leagueId: league.id,
-              name: club.name,
-              shortName: club.shortName,
-              badge: club.logo || club.shortName,
-              owner: null,
-              status: "pool",
-              externalId: club.id
-            });
-          });
-          modal.className = "modal";
-          render();
-        });
-      };
-      modal.querySelector("#clubSearch").addEventListener("input", renderClubs);
+      currentClubs = await fetchClubs(competitionId);
+      selectedIds.clear();
+      updateFooter();
       renderClubs();
     } catch (error) {
-      list.innerHTML = `<div class="empty">Import failed: ${escapeHtml(error.message)}</div>`;
+      list.innerHTML = `
+        <div class="empty">
+          Failed to load: ${escapeHtml(error.message)}
+          <button id="retryLoad" class="btn" type="button">Retry</button>
+        </div>
+      `;
+      list.querySelector("#retryLoad")?.addEventListener("click", () => loadCompetition(competitionId));
     }
+  }
+
+  modal.querySelector("#competition").addEventListener("change", (event) => {
+    loadCompetition(event.target.value);
   });
+  modal.querySelector("#clubSearch").addEventListener("input", () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(renderClubs, 150);
+  });
+  modal.querySelector("#addSelected").addEventListener("click", () => {
+    selectedIds.forEach((id) => {
+      const club = currentClubs.find((candidate) => candidate.id === id);
+      if (!club) return;
+      save(KEYS.teams, {
+        leagueId: league.id,
+        name: club.name,
+        shortName: club.shortName,
+        badge: club.logo || club.shortName,
+        owner: null,
+        status: "pool",
+        externalId: club.id
+      });
+    });
+    modal.className = "modal";
+    render();
+  });
+
+  loadCompetition(modal.querySelector("#competition").value);
 }
 
 render();
