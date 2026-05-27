@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Club Pool Status Flag</title>
+    <link rel="stylesheet" href="./visualize-assets/visualize-theme.css" />
+  </head>
+  <body>
+    <main class="viz-shell">
+      <header class="viz-hero">
+        <p class="viz-kicker">Plan Visualization</p>
+        <h1 class="viz-title">Club Pool Status Flag</h1>
+        <p class="viz-summary">
+          Pemisahan "pool referensi klub" dari "peserta aktif liga" via field <code>status: 'pool' | 'active'</code> pada entity Team.
+          Hanya klub yang terpilih via spin wheel yang masuk jadwal season.
+        </p>
+        <ul class="viz-meta">
+          <li class="viz-pill">2026-05-26 15:22</li>
+          <li class="viz-pill">3 phases</li>
+          <li class="viz-pill">4 files</li>
+          <li class="viz-pill">Complexity: S–M</li>
+          <li class="viz-pill">Brainstorm: 260526-1515-club-pool-spin-wheel</li>
+        </ul>
+      </header>
+
+      <section class="viz-grid">
+        <!-- Flow Diagram -->
+        <article class="viz-panel">
+          <h2>Plan Flow</h2>
+          <div class="mermaid">
+flowchart TD
+  A([Import / Tambah Klub]) -->|status: pool| B[Pool Referensi]
+  B -->|Spin Wheel| C{Wheel berhenti\ndi Klub X}
+  C -->|Input nama pemilik| D[status: active\nowner: Nama]
+  D --> E[Peserta Liga]
+  E -->|Create Season| F[Jadwal Round-Robin\nhanya active teams]
+  B -->|Sisa tidak dipilih| G([Pool tidak ikut season])
+
+  style A fill:#d9f2ed,stroke:#0f766e
+  style G fill:#f1f5f9,stroke:#94a3b8
+  style F fill:#d9f2ed,stroke:#0f766e
+          </div>
+        </article>
+
+        <!-- Phase Timeline -->
+        <article class="viz-panel half">
+          <h2>Phase Timeline</h2>
+          <div class="viz-timeline">
+            <div class="viz-step">
+              <p class="viz-step-title">Phase 1 [S] — Schema + Wheel</p>
+              <p class="viz-step-meta">
+                Tambah <code>status: 'pool'</code> ke semua <code>save()</code> call di
+                <code>teams.js</code>. Update <code>wheel.js</code>: kandidat = pool,
+                assign → set <code>status: 'active'</code>.
+              </p>
+            </div>
+            <div class="viz-step">
+              <p class="viz-step-title">Phase 2 [M] — UI Two-Section</p>
+              <p class="viz-step-meta">
+                Restructure render <code>teams.html</code>: dua section terpisah
+                <strong>Peserta Liga</strong> dan <strong>Pool Referensi</strong>
+                dengan count masing-masing. Spin button disabled saat pool kosong.
+              </p>
+            </div>
+            <div class="viz-step">
+              <p class="viz-step-title">Phase 3 [S] — Downstream Filters</p>
+              <p class="viz-step-meta">
+                <code>league.js</code> dan <code>season.js</code>: filter query ke
+                <code>status === 'active'</code> sehingga jadwal dan validasi
+                peserta tidak menyertakan pool clubs.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <!-- Risks -->
+        <article class="viz-panel half">
+          <h2>Risks &amp; Notes</h2>
+          <div style="display:grid;gap:12px">
+            <div class="viz-callout">
+              <strong>Tidak ada migrasi data</strong><br>
+              App masih fresh (localStorage kosong). Field <code>status</code> hanya perlu ditambahkan ke create path, tidak ada backfill.
+            </div>
+            <div class="viz-callout">
+              <strong><code>standings.js</code> &amp; <code>schedule.js</code> tidak perlu diubah</strong><br>
+              Pure functions — menerima data dari caller, tidak query storage sendiri.
+            </div>
+            <div class="viz-callout warning">
+              <strong>localStorage lama tanpa <code>status</code></strong><br>
+              Jika ada data lama: <code>status === undefined</code> akan masuk pool section (treatment sama seperti pool). Tidak kritis.
+            </div>
+          </div>
+        </article>
+
+        <!-- Key Changes Table -->
+        <article class="viz-panel">
+          <h2>Key Changes</h2>
+          <table class="viz-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Perubahan</th>
+                <th>Phase</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>js/teams.js</code></td>
+                <td>Tambah <code>status: 'pool'</code> di form save + import save; render dua section; wheelButton condition</td>
+                <td>1, 2</td>
+              </tr>
+              <tr>
+                <td><code>js/wheel.js</code></td>
+                <td><code>unassigned()</code> → filter <code>status === 'pool'</code>; assign → set <code>status: 'active'</code></td>
+                <td>1</td>
+              </tr>
+              <tr>
+                <td><code>js/league.js</code></td>
+                <td>Filter teams ke <code>status === 'active'</code> di baris ~15</td>
+                <td>3</td>
+              </tr>
+              <tr>
+                <td><code>js/season.js</code></td>
+                <td>Filter teams ke <code>status === 'active'</code> di baris ~23</td>
+                <td>3</td>
+              </tr>
+            </tbody>
+          </table>
+        </article>
+
+        <!-- Verification -->
+        <article class="viz-panel">
+          <h2>Verification (Golden Path)</h2>
+          <ol class="viz-list">
+            <li>Buka <code>teams.html?league=&lt;id&gt;</code> → Import 3 klub → muncul di <strong>Pool Referensi (3)</strong>, Peserta (0)</li>
+            <li>Spin wheel → pilih nama untuk 1 klub → <strong>Peserta Liga (1)</strong>, Pool (2)</li>
+            <li>Wheel re-render dengan 2 kandidat (klub terpilih tidak muncul)</li>
+            <li>Pool habis → Spin button disabled</li>
+            <li>Buka <code>league.html</code> → Create Season dengan 1 peserta → button disabled</li>
+            <li>Spin 1 lagi (total 2 peserta) → Create Season → jadwal hanya 2 peserta aktif</li>
+            <li>Cek localStorage <code>matches</code>: tidak ada pool team ID di schedule</li>
+          </ol>
+        </article>
+      </section>
+    </main>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral" });
+    </script>
+  </body>
+</html>
