@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 interface ShellProps {
-  active: 'leagues' | 'players' | 'settings';
+  active: 'leagues' | 'players';
   title: string;
   actions?: ReactNode;
   children: ReactNode;
@@ -23,9 +23,6 @@ export function Shell({ active, title, actions, children }: ShellProps) {
             </Link>
             <Link className={active === 'players' ? 'active' : ''} to="/players">
               Players
-            </Link>
-            <Link className={active === 'settings' ? 'active' : ''} to="/settings">
-              Settings
             </Link>
           </nav>
         </div>
