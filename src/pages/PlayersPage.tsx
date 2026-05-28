@@ -10,6 +10,7 @@ import { useTeamStore } from '../store/useTeamStore';
 
 export function PlayersPage() {
   const players = usePlayerStore((state) => state.players);
+  const addPlayer = usePlayerStore((state) => state.addPlayer);
   const updatePlayer = usePlayerStore((state) => state.updatePlayer);
   const deletePlayer = usePlayerStore((state) => state.deletePlayer);
   const fetchPlayers = usePlayerStore((state) => state.fetchPlayers);
@@ -22,6 +23,9 @@ export function PlayersPage() {
   const isAdmin = useAuthStore((state) => state.isAdmin);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [addError, setAddError] = useState('');
 
   useEffect(() => {
     fetchPlayers();
@@ -43,6 +47,26 @@ export function PlayersPage() {
     setEditName(currentName);
   }
 
+  function closeAddForm() {
+    setShowAddForm(false);
+    setNewName('');
+    setAddError('');
+  }
+
+  async function handleAddPlayer(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = newName.trim();
+    if (!name) return;
+
+    if (players.some((player) => player.name.toLowerCase() === name.toLowerCase())) {
+      setAddError('Nama sudah dipakai');
+      return;
+    }
+
+    await addPlayer({ name, createdAt: new Date().toISOString() });
+    closeAddForm();
+  }
+
   async function commitEdit(player: (typeof players)[number]) {
     const name = editName.trim();
     if (name && name !== player.name) await updatePlayer({ ...player, name });
@@ -60,6 +84,44 @@ export function PlayersPage() {
       <div className="panel">
         <div className="panel-head">
           <h2>Global Leaderboard</h2>
+          {isAdmin ? (
+            showAddForm ? (
+              <form
+                onSubmit={handleAddPlayer}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) closeAddForm();
+                }}
+                style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}
+              >
+                <input
+                  value={newName}
+                  onChange={(event) => {
+                    setNewName(event.target.value);
+                    setAddError('');
+                  }}
+                  placeholder="Nama player"
+                  autoFocus
+                  required
+                  style={{ width: 180 }}
+                />
+                {addError ? (
+                  <span className="muted" style={{ color: 'var(--danger)' }}>
+                    {addError}
+                  </span>
+                ) : null}
+                <button className="btn btn-xs" type="submit">
+                  Simpan
+                </button>
+                <button className="btn btn-xs" type="button" onClick={closeAddForm}>
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <button className="btn btn-xs" type="button" onClick={() => setShowAddForm(true)}>
+                + Add
+              </button>
+            )
+          ) : null}
         </div>
         <div className="panel-body">
           {leaderboard.length === 0 ? (
