@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Shell } from '../components/Shell';
 import { calculateHeadToHeadFromData, calculatePlayerStatsFromData, type AggregatedStats, type H2HStats } from '../lib/playerStats';
+import { calculateQuickMatchStatsFromData } from '../lib/quickMatchStats';
 import { useLeagueStore } from '../store/useLeagueStore';
 import { useMatchStore } from '../store/useMatchStore';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useQuickMatchStore } from '../store/useQuickMatchStore';
 import { useSeasonStore } from '../store/useSeasonStore';
 import { useTeamStore } from '../store/useTeamStore';
 
@@ -20,6 +22,10 @@ export function PlayerPage() {
   const fetchSeasons = useSeasonStore((state) => state.fetchSeasons);
   const matches = useMatchStore((state) => state.matches);
   const fetchMatches = useMatchStore((state) => state.fetchMatches);
+  const quickMatchSessions = useQuickMatchStore((state) => state.sessions);
+  const quickMatchGamesBySession = useQuickMatchStore((state) => state.gamesBySession);
+  const fetchQuickMatchSessions = useQuickMatchStore((state) => state.fetchSessions);
+  const fetchQuickMatchGames = useQuickMatchStore((state) => state.fetchGames);
   const [h2hOpponentId, setH2hOpponentId] = useState('');
 
   useEffect(() => {
@@ -28,11 +34,24 @@ export function PlayerPage() {
     fetchTeams();
     fetchSeasons();
     fetchMatches();
-  }, [fetchPlayers, fetchLeagues, fetchTeams, fetchSeasons, fetchMatches]);
+    fetchQuickMatchSessions();
+  }, [fetchPlayers, fetchLeagues, fetchTeams, fetchSeasons, fetchMatches, fetchQuickMatchSessions]);
+
+  useEffect(() => {
+    quickMatchSessions
+      .filter((session) => session.player1Id === id || session.player2Id === id)
+      .forEach((session) => {
+        if (!quickMatchGamesBySession[session.id]) fetchQuickMatchGames(session.id);
+      });
+  }, [fetchQuickMatchGames, id, quickMatchGamesBySession, quickMatchSessions]);
 
   const player = players.find((candidate) => candidate.id === id);
   const stats = useMemo(() => (id ? calculatePlayerStatsFromData(id, teams, seasons, matches) : null), [id, teams, seasons, matches]);
   const h2h = useMemo(() => (id && h2hOpponentId ? calculateHeadToHeadFromData(id, h2hOpponentId, seasons, matches) : null), [id, h2hOpponentId, seasons, matches]);
+  const quickMatchStats = useMemo(
+    () => (id ? calculateQuickMatchStatsFromData(id, quickMatchSessions, quickMatchGamesBySession) : null),
+    [id, quickMatchGamesBySession, quickMatchSessions],
+  );
 
   if (!player || !stats) {
     return (
@@ -76,6 +95,20 @@ export function PlayerPage() {
           <div className="panel-head"><h2>Performance</h2></div>
           <div className="panel-body">
             <PerfBar stats={stats.totals} />
+          </div>
+        </div>
+      )}
+
+      {quickMatchStats && (
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-head"><h2>Quick Match</h2></div>
+          <div className="panel-body">
+            <div className="league-stat-grid">
+              <MiniStat label="M" value={quickMatchStats.played} />
+              <MiniStat label="W" value={quickMatchStats.won} accent="success" />
+              <MiniStat label="D" value={quickMatchStats.drawn} />
+              <MiniStat label="L" value={quickMatchStats.lost} accent="danger" />
+            </div>
           </div>
         </div>
       )}

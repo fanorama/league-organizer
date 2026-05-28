@@ -39,4 +39,27 @@ describe('fetchClubs', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/football?league=39&season=2024');
     expect(localStorage.getItem('clubs_cache')).toContain('Arsenal');
   });
+
+  it('reports a clear error when the football proxy does not return JSON', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'application/javascript' }),
+      text: async () => 'export default async function handler() {}',
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchClubs('39')).rejects.toThrow('Football proxy returned application/javascript instead of JSON');
+  });
+
+  it('uses the football proxy error message when the proxy returns JSON failure', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => ({ error: 'API key not configured' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchClubs('39')).rejects.toThrow('API key not configured');
+  });
 });

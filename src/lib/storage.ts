@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { CacheEntry, League, Match, Player, Season, Team } from './types';
+import type { CacheEntry, League, Match, Player, QuickMatchGame, QuickMatchSession, Season, Team } from './types';
 
 type DbRow = Record<string, any>;
 
@@ -136,6 +136,64 @@ function matchToDb(match: Partial<Match>): DbRow {
     original_matchday: match.originalMatchday ?? null,
     scheduled_date: match.scheduledDate ?? null,
     bracket_slot: match.bracketSlot ?? null,
+  });
+}
+
+function dbToQuickMatchSession(row: DbRow): QuickMatchSession {
+  return {
+    id: row.id,
+    player1Id: row.player1_id,
+    player2Id: row.player2_id,
+    status: row.status,
+    createdAt: row.created_at,
+    finishedAt: row.finished_at ?? null,
+  };
+}
+
+function quickMatchSessionToDb(session: Partial<QuickMatchSession>): DbRow {
+  return stripUndefined({
+    id: session.id,
+    player1_id: session.player1Id,
+    player2_id: session.player2Id,
+    status: session.status,
+    created_at: session.createdAt,
+    finished_at: session.finishedAt ?? null,
+  });
+}
+
+function dbToQuickMatchGame(row: DbRow): QuickMatchGame {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    player1Club: {
+      id: row.player1_club_id,
+      name: row.player1_club_name,
+      logo: row.player1_club_logo ?? undefined,
+    },
+    player2Club: {
+      id: row.player2_club_id,
+      name: row.player2_club_name,
+      logo: row.player2_club_logo ?? undefined,
+    },
+    player1Score: row.player1_score,
+    player2Score: row.player2_score,
+    createdAt: row.created_at,
+  };
+}
+
+function quickMatchGameToDb(game: Partial<QuickMatchGame>): DbRow {
+  return stripUndefined({
+    id: game.id,
+    session_id: game.sessionId,
+    player1_club_id: game.player1Club?.id,
+    player1_club_name: game.player1Club?.name,
+    player1_club_logo: game.player1Club?.logo ?? null,
+    player2_club_id: game.player2Club?.id,
+    player2_club_name: game.player2Club?.name,
+    player2_club_logo: game.player2Club?.logo ?? null,
+    player1_score: game.player1Score,
+    player2_score: game.player2Score,
+    created_at: game.createdAt,
   });
 }
 
@@ -282,6 +340,30 @@ export async function deleteMatch(id: string): Promise<void> {
 export async function deleteMatchesBySeason(seasonId: string): Promise<void> {
   const { error } = await supabase.from('matches').delete().eq('season_id', seasonId);
   if (error) throw error;
+}
+
+export async function getQuickMatchSessions(): Promise<QuickMatchSession[]> {
+  const { data, error } = await supabase.from('quick_match_sessions').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(dbToQuickMatchSession);
+}
+
+export async function saveQuickMatchSession(session: Omit<QuickMatchSession, 'id'> | QuickMatchSession): Promise<QuickMatchSession> {
+  const { data, error } = await supabase.from('quick_match_sessions').upsert(quickMatchSessionToDb(session)).select().single();
+  if (error) throw error;
+  return dbToQuickMatchSession(data);
+}
+
+export async function getQuickMatchGamesBySession(sessionId: string): Promise<QuickMatchGame[]> {
+  const { data, error } = await supabase.from('quick_match_games').select('*').eq('session_id', sessionId).order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(dbToQuickMatchGame);
+}
+
+export async function saveQuickMatchGame(game: Omit<QuickMatchGame, 'id'> | QuickMatchGame): Promise<QuickMatchGame> {
+  const { data, error } = await supabase.from('quick_match_games').upsert(quickMatchGameToDb(game)).select().single();
+  if (error) throw error;
+  return dbToQuickMatchGame(data);
 }
 
 export function getCache<T = CacheEntry>(): Record<string, T> {

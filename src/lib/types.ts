@@ -119,3 +119,28 @@ export interface ClubFromApi {
   badge?: string;
   country?: string;
 }
+
+export interface QuickMatchSession {
+  id: string;
+  player1Id: string;
+  player2Id: string;
+  status: 'active' | 'finished';
+  createdAt: string;
+  finishedAt?: string | null;
+}
+
+export interface QuickMatchClubSnapshot {
+  id: string;
+  name: string;
+  logo?: string;
+}
+
+export interface QuickMatchGame {
+  id: string;
+  sessionId: string;
+  player1Club: QuickMatchClubSnapshot;
+  player2Club: QuickMatchClubSnapshot;
+  player1Score: number;
+  player2Score: number;
+  createdAt: string;
+}

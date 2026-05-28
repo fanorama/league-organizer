@@ -8,6 +8,14 @@ beforeEach(() => {
 });
 
 describe('App routes', () => {
+  it('renders the quick match page', async () => {
+    window.location.hash = '#/quick-match';
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: 'Quick Match' })).toBeInTheDocument();
+  });
+
   it('redirects the removed settings route to leagues', async () => {
     window.location.hash = '#/settings';
 
