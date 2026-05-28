@@ -252,6 +252,7 @@ textarea {
 }
 
 .panel {
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -266,7 +267,12 @@ textarea {
 }
 
 .panel-body {
+  min-width: 0;
   padding: 18px;
+}
+
+.panel-body > section {
+  min-width: 0;
 }
 
 /* ─── TYPOGRAPHY ─── */
@@ -476,10 +482,12 @@ textarea {
 .list {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .list-row {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -493,6 +501,32 @@ textarea {
 .list-row:hover {
   background: var(--panel-2);
   border-color: var(--border-2);
+}
+
+.participant-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pool-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.pool-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pool-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 
 /* ─── TABLE ─── */
@@ -1574,6 +1608,132 @@ tbody tr:first-child td:first-child {
 
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .participant-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px 10px;
+    align-items: start;
+    padding: 14px;
+  }
+
+  .participant-row .team-line {
+    align-items: center;
+  }
+
+  .participant-row .team-line > div {
+    min-width: 0;
+  }
+
+  .participant-actions {
+    display: contents;
+  }
+
+  .participant-actions .badge {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    margin-top: 6px;
+  }
+
+  .participant-actions .btn {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    min-height: 28px;
+    justify-content: center;
+  }
+
+  .pool-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px 10px;
+    align-items: start;
+    padding: 14px;
+  }
+
+  .pool-row-main {
+    display: contents;
+  }
+
+  .pool-row-main .team-line {
+    grid-column: 1;
+    grid-row: 1;
+    align-items: center;
+  }
+
+  .pool-row-main .team-line > div {
+    min-width: 0;
+  }
+
+  .pool-actions {
+    display: contents;
+  }
+
+  .pool-actions .badge {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    margin-top: 6px;
+  }
+
+  .pool-actions .btn {
+    min-height: 28px;
+    justify-content: center;
+  }
+
+  .pool-actions .btn:not(.danger) {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  .pool-actions .btn.danger {
+    grid-column: 2;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  .pool-actions .btn:not(.danger):last-child {
+    grid-column: 1 / -1;
+  }
+
+  .pool-row:has(.pool-actions .btn.danger) {
+    grid-template-columns: minmax(0, 1fr) minmax(92px, auto);
+  }
+
+  .pool-row:has(.pool-actions .btn.danger) .pool-actions .btn:not(.danger) {
+    min-width: 92px;
+  }
+
+  .pool-row:has(.pool-actions .btn.danger) .pool-actions .btn.danger {
+    min-width: 92px;
+  }
+
+  .pool-row:has(.pool-actions .btn.danger) .pool-actions .badge {
+    width: fit-content;
+  }
+
+  .pool-row:not(:has(.pool-actions .btn.danger)) .pool-actions .badge {
+    grid-column: 2;
+  }
+
+  .pool-row:not(:has(.pool-actions .btn.danger)) .pool-actions .btn {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  .pool-row .list {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .pool-actions {
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
   }
 
   /* ─── MATCH CARD MOBILE ─── */
