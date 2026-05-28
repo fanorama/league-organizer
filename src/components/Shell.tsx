@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 
 interface ShellProps {
-  active: 'leagues' | 'players';
+  active: 'leagues' | 'players' | 'quick-match';
   title: string;
   actions?: ReactNode;
   children: ReactNode;
@@ -50,6 +50,9 @@ export function Shell({ active, title, actions, children }: ShellProps) {
             <Link className={active === 'players' ? 'active' : ''} to="/players">
               Players
             </Link>
+            <Link className={active === 'quick-match' ? 'active' : ''} to="/quick-match">
+              Quick Match
+            </Link>
           </nav>
           {isAdmin ? (
             <button className="btn btn-xs header-logout" type="button" onClick={handleLogout}>
@@ -91,6 +94,14 @@ export function Shell({ active, title, actions, children }: ShellProps) {
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Pemain
+          </button>
+          <button
+            type="button"
+            className={`mobile-nav-link${active === 'quick-match' ? ' active' : ''}`}
+            onClick={() => handleMobileNav('/quick-match')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+            Quick Match
           </button>
           {isAdmin ? (
             <button type="button" className="mobile-nav-link mobile-nav-logout" onClick={handleMobileLogout}>

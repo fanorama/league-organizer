@@ -23,8 +23,13 @@ export async function fetchClubs(competitionId: string | number): Promise<ClubFr
   if (hasFreshCache(cache[cacheKey])) return cache[cacheKey].data;
 
   const response = await fetch(`/api/football?league=${competitionId}&season=${API_SEASON}`);
-  if (!response.ok) throw new Error(`API request failed: ${response.status}`);
+  const contentType = response.headers?.get('content-type') ?? '';
+  if (contentType && !contentType.includes('application/json')) {
+    throw new Error(`Football proxy returned ${contentType} instead of JSON`);
+  }
+
   const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || `API request failed: ${response.status}`);
   if (payload.errors && Object.keys(payload.errors).length) {
     throw new Error(Object.values(payload.errors).flat().join(', '));
   }
