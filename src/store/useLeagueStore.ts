@@ -1,34 +1,41 @@
 import { create } from 'zustand';
-import { KEYS, cascadeDeleteLeague, getAll, save } from '../lib/storage';
+import { deleteLeague, getLeagues, saveLeague } from '../lib/storage';
 import type { League } from '../lib/types';
 
 interface LeagueStore {
   leagues: League[];
-  createLeague: (data: Omit<League, 'id'>) => League;
-  updateLeague: (league: League) => League;
-  deleteLeague: (id: string) => void;
-  refresh: () => void;
+  fetchLeagues: () => Promise<void>;
+  createLeague: (data: Omit<League, 'id'>) => Promise<League>;
+  updateLeague: (league: League) => Promise<League>;
+  deleteLeague: (id: string) => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 export const useLeagueStore = create<LeagueStore>((set) => ({
-  leagues: getAll<League>(KEYS.leagues),
+  leagues: [],
 
-  createLeague: (data) => {
-    const league = save<League>(KEYS.leagues, data as League);
-    set({ leagues: getAll<League>(KEYS.leagues) });
+  fetchLeagues: async () => {
+    set({ leagues: await getLeagues() });
+  },
+
+  createLeague: async (data) => {
+    const league = await saveLeague(data);
+    set({ leagues: await getLeagues() });
     return league;
   },
 
-  updateLeague: (league) => {
-    const updated = save<League>(KEYS.leagues, league);
-    set({ leagues: getAll<League>(KEYS.leagues) });
+  updateLeague: async (league) => {
+    const updated = await saveLeague(league);
+    set({ leagues: await getLeagues() });
     return updated;
   },
 
-  deleteLeague: (id) => {
-    cascadeDeleteLeague(id);
-    set({ leagues: getAll<League>(KEYS.leagues) });
+  deleteLeague: async (id) => {
+    await deleteLeague(id);
+    set({ leagues: await getLeagues() });
   },
 
-  refresh: () => set({ leagues: getAll<League>(KEYS.leagues) }),
+  refresh: async () => {
+    set({ leagues: await getLeagues() });
+  },
 }));

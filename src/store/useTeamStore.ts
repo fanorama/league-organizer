@@ -1,42 +1,49 @@
 import { create } from 'zustand';
-import { KEYS, getAll, remove, save } from '../lib/storage';
+import { deleteTeam, getTeams, saveTeam } from '../lib/storage';
 import type { Team } from '../lib/types';
 
 interface TeamStore {
   teams: Team[];
-  addTeam: (data: Omit<Team, 'id'>) => Team;
-  updateTeam: (team: Team) => Team;
-  removeTeam: (id: string) => void;
-  unassignTeam: (id: string) => void;
-  refresh: () => void;
+  fetchTeams: () => Promise<void>;
+  addTeam: (data: Omit<Team, 'id'>) => Promise<Team>;
+  updateTeam: (team: Team) => Promise<Team>;
+  removeTeam: (id: string) => Promise<void>;
+  unassignTeam: (id: string) => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 export const useTeamStore = create<TeamStore>((set, get) => ({
-  teams: getAll<Team>(KEYS.teams),
+  teams: [],
 
-  addTeam: (data) => {
-    const team = save<Team>(KEYS.teams, data as Team);
-    set({ teams: getAll<Team>(KEYS.teams) });
+  fetchTeams: async () => {
+    set({ teams: await getTeams() });
+  },
+
+  addTeam: async (data) => {
+    const team = await saveTeam(data);
+    set({ teams: await getTeams() });
     return team;
   },
 
-  updateTeam: (team) => {
-    const updated = save<Team>(KEYS.teams, team);
-    set({ teams: getAll<Team>(KEYS.teams) });
+  updateTeam: async (team) => {
+    const updated = await saveTeam(team);
+    set({ teams: await getTeams() });
     return updated;
   },
 
-  removeTeam: (id) => {
-    remove(KEYS.teams, id);
-    set({ teams: getAll<Team>(KEYS.teams) });
+  removeTeam: async (id) => {
+    await deleteTeam(id);
+    set({ teams: await getTeams() });
   },
 
-  unassignTeam: (id) => {
+  unassignTeam: async (id) => {
     const team = get().teams.find((candidate) => candidate.id === id);
     if (!team) return;
-    save<Team>(KEYS.teams, { ...team, status: 'pool', owner: null, ownerId: null });
-    set({ teams: getAll<Team>(KEYS.teams) });
+    await saveTeam({ ...team, status: 'pool', owner: null, ownerId: null });
+    set({ teams: await getTeams() });
   },
 
-  refresh: () => set({ teams: getAll<Team>(KEYS.teams) }),
+  refresh: async () => {
+    set({ teams: await getTeams() });
+  },
 }));

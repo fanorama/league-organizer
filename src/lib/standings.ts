@@ -1,4 +1,4 @@
-import { KEYS, getAll, getById } from './storage';
+import { getMatchesBySeason, getSeasonById, getTeamsByLeague } from './storage';
 import type { Match, Season, Team } from './types';
 
 export interface StandingsRow {
@@ -14,16 +14,13 @@ export interface StandingsRow {
   form: string[];
 }
 
-export function calculateStandings(seasonId: string): StandingsRow[] {
-  const season = getById<Season>(KEYS.seasons, seasonId);
+export function calculateStandingsFromData(season: Season | null | undefined, teams: Team[], matches: Match[]): StandingsRow[] {
   if (!season) return [];
-  const allTeamsMap = Object.fromEntries(
-    getAll<Team>(KEYS.teams).filter((team) => team.leagueId === season.leagueId).map((team) => [team.id, team]),
-  );
-  const teams = (season.teamIds || []).map((id) => allTeamsMap[id]).filter(Boolean);
-  const finished = getAll<Match>(KEYS.matches).filter((match) => match.seasonId === seasonId && match.status === 'finished' && match.matchType !== 'playoff');
+  const allTeamsMap = Object.fromEntries(teams.filter((team) => team.leagueId === season.leagueId).map((team) => [team.id, team]));
+  const seasonTeams = (season.teamIds || []).map((id) => allTeamsMap[id]).filter(Boolean);
+  const finished = matches.filter((match) => match.seasonId === season.id && match.status === 'finished' && match.matchType !== 'playoff');
 
-  return teams.map((team) => {
+  return seasonTeams.map((team) => {
     const row = {
       team,
       played: 0,
@@ -66,4 +63,14 @@ export function calculateStandings(seasonId: string): StandingsRow[] {
     row.form = row.form.slice(-5);
     return row;
   }).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.team.name.localeCompare(b.team.name));
+}
+
+export async function calculateStandings(seasonId: string): Promise<StandingsRow[]> {
+  const season = await getSeasonById(seasonId);
+  if (!season) return [];
+  const [teams, matches] = await Promise.all([
+    getTeamsByLeague(season.leagueId),
+    getMatchesBySeason(seasonId),
+  ]);
+  return calculateStandingsFromData(season, teams, matches);
 }

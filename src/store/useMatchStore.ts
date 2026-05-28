@@ -1,21 +1,35 @@
 import { create } from 'zustand';
-import { KEYS, getAll, save } from '../lib/storage';
+import { getMatches, saveMatch, saveMatches } from '../lib/storage';
 import type { Match } from '../lib/types';
 
 interface MatchStore {
   matches: Match[];
-  updateMatch: (match: Match) => Match;
-  refresh: () => void;
+  fetchMatches: () => Promise<void>;
+  updateMatch: (match: Match) => Promise<Match>;
+  addMatches: (matches: (Omit<Match, 'id'> | Match)[]) => Promise<Match[]>;
+  refresh: () => Promise<void>;
 }
 
 export const useMatchStore = create<MatchStore>((set) => ({
-  matches: getAll<Match>(KEYS.matches),
+  matches: [],
 
-  updateMatch: (match) => {
-    const updated = save<Match>(KEYS.matches, match);
-    set({ matches: getAll<Match>(KEYS.matches) });
+  fetchMatches: async () => {
+    set({ matches: await getMatches() });
+  },
+
+  updateMatch: async (match) => {
+    const updated = await saveMatch(match);
+    set({ matches: await getMatches() });
     return updated;
   },
 
-  refresh: () => set({ matches: getAll<Match>(KEYS.matches) }),
+  addMatches: async (matches) => {
+    const saved = await saveMatches(matches);
+    set({ matches: await getMatches() });
+    return saved;
+  },
+
+  refresh: async () => {
+    set({ matches: await getMatches() });
+  },
 }));

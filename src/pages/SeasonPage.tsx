@@ -4,9 +4,9 @@ import { Badge } from '../components/Badge';
 import { Shell } from '../components/Shell';
 import { TeamBadge } from '../components/TeamBadge';
 import { advancePlayoffRound, createSeasonWithSchedule, replaceSeasonSchedule, resolveMultiLegWinnerPublic, startPlayoff } from '../lib/schedule';
-import { calculateStandings } from '../lib/standings';
-import { KEYS, getAll, save } from '../lib/storage';
+import { calculateStandingsFromData } from '../lib/standings';
 import type { League, Match, PlayoffSlot, Season, Team } from '../lib/types';
+import { useAuthStore } from '../store/useAuthStore';
 import { useLeagueStore } from '../store/useLeagueStore';
 import { useMatchStore } from '../store/useMatchStore';
 import { useSeasonStore } from '../store/useSeasonStore';
@@ -21,10 +21,15 @@ export function SeasonPage() {
   const season = useSeasonStore((s) => s.seasons.find((item) => item.id === seasonId));
   const updateSeason = useSeasonStore((s) => s.updateSeason);
   const refreshSeasons = useSeasonStore((s) => s.refresh);
+  const fetchSeasons = useSeasonStore((s) => s.fetchSeasons);
   const allMatches = useMatchStore((s) => s.matches);
   const updateMatch = useMatchStore((s) => s.updateMatch);
   const refreshMatches = useMatchStore((s) => s.refresh);
+  const fetchMatches = useMatchStore((s) => s.fetchMatches);
   const allTeams = useTeamStore((s) => s.teams);
+  const fetchTeams = useTeamStore((s) => s.fetchTeams);
+  const fetchLeagues = useLeagueStore((s) => s.fetchLeagues);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
 
   const matches = useMemo(() => allMatches.filter((match) => match.seasonId === seasonId), [allMatches, seasonId]);
   const teams = useMemo(() => allTeams.filter((team) => team.leagueId === leagueId), [allTeams, leagueId]);
@@ -34,25 +39,37 @@ export function SeasonPage() {
   const allFinished = leagueMatches.length > 0 && leagueMatches.every((match) => match.status === 'finished');
 
   useEffect(() => {
+    fetchLeagues();
+    fetchSeasons();
+    fetchMatches();
+    fetchTeams();
+  }, [fetchLeagues, fetchSeasons, fetchMatches, fetchTeams]);
+
+  useEffect(() => {
     if (!season || !league || season.status !== 'active' || !allFinished) return;
-    const standings = calculateStandings(season.id);
-    if (league.settings.playoff?.enabled) {
-      updateSeason({ ...season, status: 'playoff_setup' });
-      setActiveTab('playoff');
-      return;
+    const currentSeason = season;
+    const currentLeague = league;
+    async function finishSeason() {
+      const standings = calculateStandingsFromData(currentSeason, allTeams, allMatches);
+      if (currentLeague.settings.playoff?.enabled) {
+        await updateSeason({ ...currentSeason, status: 'playoff_setup' });
+        setActiveTab('playoff');
+        return;
+      }
+      await updateSeason({
+        ...currentSeason,
+        status: 'finished',
+        champion: standings[0]?.team.id || null,
+        finishedAt: new Date().toISOString(),
+      });
+      if (currentLeague.settings.continuousSeasons) {
+        await createSeasonWithSchedule(currentLeague, activeTeams);
+        await refreshSeasons();
+        await refreshMatches();
+      }
     }
-    updateSeason({
-      ...season,
-      status: 'finished',
-      champion: standings[0]?.team.id || null,
-      finishedAt: new Date().toISOString(),
-    });
-    if (league.settings.continuousSeasons) {
-      createSeasonWithSchedule(league, activeTeams);
-      refreshSeasons();
-      refreshMatches();
-    }
-  }, [allFinished, league, season, updateSeason, activeTeams, refreshSeasons, refreshMatches]);
+    finishSeason();
+  }, [allFinished, league, season, updateSeason, activeTeams, refreshSeasons, refreshMatches, allTeams, allMatches]);
 
   if (!season || !league) {
     return (
@@ -67,14 +84,14 @@ export function SeasonPage() {
   const showPlayoffTab = ['playoff_setup', 'playoff_active'].includes(currentSeason.status) || (currentSeason.status === 'finished' && !!currentSeason.bracket);
   const safeActiveTab = showPlayoffTab || activeTab !== 'playoff' ? activeTab : 'schedule';
 
-  function handleRandomize() {
-    replaceSeasonSchedule(currentSeason, activeTeams.map((team) => team.id), currentLeague.settings.meetingsPerSeason);
-    refreshMatches();
+  async function handleRandomize() {
+    await replaceSeasonSchedule(currentSeason, activeTeams.map((team) => team.id), currentLeague.settings.meetingsPerSeason);
+    await refreshMatches();
   }
 
-  function handleStartSeason() {
+  async function handleStartSeason() {
     if (confirm('Start season? Schedule changes will be locked.')) {
-      updateSeason({ ...currentSeason, status: 'active', startedAt: new Date().toISOString() });
+      await updateSeason({ ...currentSeason, status: 'active', startedAt: new Date().toISOString() });
     }
   }
 
@@ -90,7 +107,7 @@ export function SeasonPage() {
           </div>
           <div className="actions">
             <Badge status={currentSeason.status} />
-            {currentSeason.status === 'setup' ? (
+            {isAdmin && currentSeason.status === 'setup' ? (
               <>
                 <button id="randomize" className="btn" type="button" onClick={handleRandomize}>
                   Randomize
@@ -117,9 +134,9 @@ export function SeasonPage() {
         ) : null}
       </div>
       <section id="tabContent">
-        {safeActiveTab === 'standings' ? <StandingsTab season={currentSeason} /> : null}
-        {safeActiveTab === 'playoff' ? <PlayoffTab season={currentSeason} league={currentLeague} teams={teamById} refresh={() => { refreshSeasons(); refreshMatches(); }} /> : null}
-        {safeActiveTab === 'schedule' ? <ScheduleTab season={currentSeason} teams={teamById} matches={leagueMatches} updateMatch={updateMatch} refreshMatches={refreshMatches} /> : null}
+        {safeActiveTab === 'standings' ? <StandingsTab season={currentSeason} teams={teams} matches={matches} /> : null}
+        {safeActiveTab === 'playoff' ? <PlayoffTab season={currentSeason} league={currentLeague} teams={teamById} refresh={async () => { await refreshSeasons(); await refreshMatches(); }} isAdmin={isAdmin} /> : null}
+        {safeActiveTab === 'schedule' ? <ScheduleTab season={currentSeason} teams={teamById} matches={leagueMatches} updateMatch={updateMatch} refreshMatches={refreshMatches} isAdmin={isAdmin} /> : null}
       </section>
     </Shell>
   );
@@ -131,12 +148,14 @@ function ScheduleTab({
   matches,
   updateMatch,
   refreshMatches,
+  isAdmin,
 }: {
   season: Season;
   teams: Record<string, Team>;
   matches: Match[];
-  updateMatch: (match: Match) => Match;
-  refreshMatches: () => void;
+  updateMatch: (match: Match) => Promise<Match>;
+  refreshMatches: () => Promise<void>;
+  isAdmin: boolean;
 }) {
   const sorted = [...matches].sort((a, b) => a.matchday - b.matchday || a.id.localeCompare(b.id));
   const groups = sorted.reduce((acc, match) => {
@@ -153,7 +172,7 @@ function ScheduleTab({
         <div className="matchday" key={matchday}>
           <div className="matchday-title">{Number(matchday) === 99 ? 'Postponed' : `Matchday ${matchday}`}</div>
           {items.map((match) => (
-            <MatchCard key={match.id} match={match} season={season} teams={teams} updateMatch={updateMatch} refreshMatches={refreshMatches} />
+            <MatchCard key={match.id} match={match} season={season} teams={teams} updateMatch={updateMatch} refreshMatches={refreshMatches} isAdmin={isAdmin} />
           ))}
         </div>
       ))}
@@ -167,26 +186,28 @@ function MatchCard({
   teams,
   updateMatch,
   refreshMatches,
+  isAdmin,
 }: {
   match: Match;
   season: Season;
   teams: Record<string, Team>;
-  updateMatch: (match: Match) => Match;
-  refreshMatches: () => void;
+  updateMatch: (match: Match) => Promise<Match>;
+  refreshMatches: () => Promise<void>;
+  isAdmin: boolean;
 }) {
   const [homeScore, setHomeScore] = useState(match.homeScore ?? '');
   const [awayScore, setAwayScore] = useState(match.awayScore ?? '');
   const home = teams[match.homeTeamId];
   const away = teams[match.awayTeamId];
-  const canEdit = season.status === 'active' && match.status !== 'finished';
+  const canEdit = isAdmin && season.status === 'active' && match.status !== 'finished';
 
-  function handleSave() {
-    updateMatch({ ...match, homeScore: Number(homeScore), awayScore: Number(awayScore), status: 'finished' });
+  async function handleSave() {
+    await updateMatch({ ...match, homeScore: Number(homeScore), awayScore: Number(awayScore), status: 'finished' });
   }
 
-  function handleDelay() {
-    updateMatch({ ...match, status: 'delayed', originalMatchday: match.matchday, matchday: 99 });
-    refreshMatches();
+  async function handleDelay() {
+    await updateMatch({ ...match, status: 'delayed', originalMatchday: match.matchday, matchday: 99 });
+    await refreshMatches();
   }
 
   return (
@@ -252,8 +273,8 @@ function TeamSummary({ team, season, side = 'home' }: { team?: Team; season: Sea
   );
 }
 
-function StandingsTab({ season }: { season: Season }) {
-  const rows = calculateStandings(season.id);
+function StandingsTab({ season, teams, matches }: { season: Season; teams: Team[]; matches: Match[] }) {
+  const rows = calculateStandingsFromData(season, teams, matches);
 
   return (
     <section className="panel">
@@ -306,26 +327,28 @@ function StandingsTab({ season }: { season: Season }) {
   );
 }
 
-function PlayoffTab({ season, league, teams, refresh }: { season: Season; league: League; teams: Record<string, Team>; refresh: () => void }) {
+function PlayoffTab({ season, league, teams, refresh, isAdmin }: { season: Season; league: League; teams: Record<string, Team>; refresh: () => Promise<void>; isAdmin: boolean }) {
   if (season.status === 'playoff_setup') {
-    return <PlayoffSetup season={season} league={league} teams={teams} refresh={refresh} />;
+    return <PlayoffSetup season={season} league={league} teams={teams} refresh={refresh} isAdmin={isAdmin} />;
   }
   if ((season.status === 'playoff_active' || season.status === 'finished') && season.bracket) {
-    return <PlayoffBracket season={season} teams={teams} refresh={refresh} />;
+    return <PlayoffBracket season={season} teams={teams} refresh={refresh} isAdmin={isAdmin} />;
   }
   return <div className="empty">Playoff selesai.</div>;
 }
 
-function PlayoffSetup({ season, league, teams, refresh }: { season: Season; league: League; teams: Record<string, Team>; refresh: () => void }) {
+function PlayoffSetup({ season, league, teams, refresh, isAdmin }: { season: Season; league: League; teams: Record<string, Team>; refresh: () => Promise<void>; isAdmin: boolean }) {
   const playoffConfig = league.settings.playoff;
-  const standings = calculateStandings(season.id);
+  const allTeams = Object.values(teams);
+  const allMatches = useMatchStore((s) => s.matches);
+  const standings = calculateStandingsFromData(season, allTeams, allMatches);
   const seeds = standings.slice(0, playoffConfig?.teamsCount || 4);
 
-  function handleStartPlayoff() {
+  async function handleStartPlayoff() {
     if (!playoffConfig) return;
     if (confirm(`Mulai playoff dengan Top ${playoffConfig.teamsCount} tim? Seeding tidak bisa diubah.`)) {
-      startPlayoff(season, league);
-      refresh();
+      await startPlayoff(season, league);
+      await refresh();
     }
   }
 
@@ -345,16 +368,18 @@ function PlayoffSetup({ season, league, teams, refresh }: { season: Season; leag
           </li>
         ))}
       </ol>
-      <div className="actions" style={{ marginTop: 16 }}>
-        <button id="startPlayoffBtn" className="btn primary" type="button" onClick={handleStartPlayoff}>
-          Start Playoff
-        </button>
-      </div>
+      {isAdmin ? (
+        <div className="actions" style={{ marginTop: 16 }}>
+          <button id="startPlayoffBtn" className="btn primary" type="button" onClick={handleStartPlayoff}>
+            Start Playoff
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function PlayoffBracket({ season, teams, refresh }: { season: Season; teams: Record<string, Team>; refresh: () => void }) {
+function PlayoffBracket({ season, teams, refresh, isAdmin }: { season: Season; teams: Record<string, Team>; refresh: () => Promise<void>; isAdmin: boolean }) {
   const bracket = season.bracket!;
 
   function renderBracketSection(label: string, rounds: PlayoffSlot[][], keyPrefix: string) {
@@ -367,7 +392,7 @@ function PlayoffBracket({ season, teams, refresh }: { season: Season; teams: Rec
               <div className="round-col-header">{keyPrefix} R{i + 1}</div>
               <div className="round-col-slots">
                 {round.map((slot, index) => (
-                  <PlayoffSlotCard slot={slot} season={season} teams={teams} refresh={refresh} key={`${keyPrefix}-${i}-${index}`} />
+                  <PlayoffSlotCard slot={slot} season={season} teams={teams} refresh={refresh} isAdmin={isAdmin} key={`${keyPrefix}-${i}-${index}`} />
                 ))}
               </div>
             </div>
@@ -387,8 +412,8 @@ function PlayoffBracket({ season, teams, refresh }: { season: Season; teams: Rec
           <div className="bracket-rounds-row">
             <div className="bracket-round-col">
               <div className="round-col-slots">
-                <PlayoffSlotCard slot={bracket.grandFinal.match} season={season} teams={teams} refresh={refresh} isGrandFinal />
-                {bracket.grandFinal.reset ? <PlayoffSlotCard slot={bracket.grandFinal.reset} season={season} teams={teams} refresh={refresh} isReset /> : null}
+                <PlayoffSlotCard slot={bracket.grandFinal.match} season={season} teams={teams} refresh={refresh} isAdmin={isAdmin} isGrandFinal />
+                {bracket.grandFinal.reset ? <PlayoffSlotCard slot={bracket.grandFinal.reset} season={season} teams={teams} refresh={refresh} isAdmin={isAdmin} isReset /> : null}
               </div>
             </div>
           </div>
@@ -403,13 +428,15 @@ function PlayoffSlotCard({
   season,
   teams,
   refresh,
+  isAdmin,
   isGrandFinal = false,
   isReset = false,
 }: {
   slot: PlayoffSlot;
   season: Season;
   teams: Record<string, Team>;
-  refresh: () => void;
+  refresh: () => Promise<void>;
+  isAdmin: boolean;
   isGrandFinal?: boolean;
   isReset?: boolean;
 }) {
@@ -430,13 +457,14 @@ function PlayoffSlotCard({
   const team2 = slot.team2 ? teams[slot.team2] : undefined;
   const tbd1 = !slot.team1;
   const tbd2 = !slot.team2;
+  const allSeasonMatches = useMatchStore((s) => s.matches);
   const allMatches = Object.fromEntries(
-    getAll<Match>(KEYS.matches)
+    allSeasonMatches
       .filter((match) => match.seasonId === season.id && match.matchType === 'playoff')
       .map((match) => [match.id, match]),
   );
   const slotMatches = slot.matchIds.map((id) => allMatches[id]).filter(Boolean);
-  const canEdit = season.status === 'playoff_active';
+  const canEdit = isAdmin && season.status === 'playoff_active';
   const allSlotFinished = slotMatches.length > 0 && slotMatches.every((match) => match.status === 'finished');
   const winner = allSlotFinished ? resolveMultiLegWinnerPublic(slot, slotMatches) : null;
   const tied = allSlotFinished && !winner;
@@ -502,17 +530,19 @@ function FinishedLeg({ match, slotMatches, teams }: { match: Match; slotMatches:
   );
 }
 
-function EditableLeg({ match, legIndex, isMultiLeg, teams, season, refresh }: { match: Match; legIndex: number; isMultiLeg: boolean; teams: Record<string, Team>; season: Season; refresh: () => void }) {
+function EditableLeg({ match, legIndex, isMultiLeg, teams, season, refresh }: { match: Match; legIndex: number; isMultiLeg: boolean; teams: Record<string, Team>; season: Season; refresh: () => Promise<void> }) {
   const [homeScore, setHomeScore] = useState(match.homeScore ?? '');
   const [awayScore, setAwayScore] = useState(match.awayScore ?? '');
   const home = teams[match.homeTeamId];
   const away = teams[match.awayTeamId];
   const legLabel = match.bracketSlot?.isExtraLeg ? 'Extra' : `Leg ${legIndex + 1}`;
 
-  function handleSave() {
-    save<Match>(KEYS.matches, { ...match, homeScore: Number(homeScore), awayScore: Number(awayScore), status: 'finished' });
-    advancePlayoffRound(season.id);
-    refresh();
+  const updateMatch = useMatchStore((s) => s.updateMatch);
+
+  async function handleSave() {
+    await updateMatch({ ...match, homeScore: Number(homeScore), awayScore: Number(awayScore), status: 'finished' });
+    await advancePlayoffRound(season.id);
+    await refresh();
   }
 
   return (

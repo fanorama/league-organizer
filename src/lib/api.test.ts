@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchClubs } from './api';
-import { KEYS } from './storage';
 
 beforeEach(() => {
   localStorage.clear();
@@ -38,6 +37,6 @@ describe('fetchClubs', () => {
     ]);
 
     expect(fetchMock).toHaveBeenCalledWith('/api/football?league=39&season=2024');
-    expect(localStorage.getItem(KEYS.clubsCache)).toContain('Arsenal');
+    expect(localStorage.getItem('clubs_cache')).toContain('Arsenal');
   });
 });

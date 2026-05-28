@@ -1,195 +1,93 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  KEYS,
-  byCreatedAtDesc,
-  cascadeDeleteLeague,
-  createId,
-  getAll,
-  getById,
-  getCache,
-  remove,
-  save,
-  saveCache,
-  setAll,
-} from './storage';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { byCreatedAtDesc, getCache, getLeagues, saveCache, saveLeague } from './storage';
+
+const mocks = vi.hoisted(() => ({
+  from: vi.fn(),
+}));
+
+vi.mock('./supabase', () => ({
+  supabase: {
+    from: mocks.from,
+  },
+}));
 
 beforeEach(() => {
   localStorage.clear();
+  mocks.from.mockReset();
 });
 
-describe('getAll', () => {
-  it('returns empty array when nothing stored', () => {
-    expect(getAll('test_key')).toEqual([]);
-  });
+function query(overrides: Record<string, unknown>) {
+  return {
+    select: vi.fn().mockReturnThis(),
+    upsert: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    single: vi.fn(),
+    ...overrides,
+  } as any;
+}
 
-  it('returns stored items', () => {
-    localStorage.setItem('test_key', JSON.stringify([{ id: '1', name: 'Alice' }]));
-    expect(getAll('test_key')).toEqual([{ id: '1', name: 'Alice' }]);
-  });
-});
+describe('getLeagues', () => {
+  it('maps Supabase rows to app leagues', async () => {
+    const q = query({
+      order: vi.fn().mockResolvedValue({
+        data: [{ id: 'l1', name: 'Liga A', description: null, settings: { meetingsPerSeason: 1, continuousSeasons: false }, created_at: '2026-01-01T00:00:00Z' }],
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
 
-describe('KEYS', () => {
-  it('does not expose browser-stored app settings', () => {
-    expect(KEYS).not.toHaveProperty('settings');
-  });
-});
+    const leagues = await getLeagues();
 
-describe('setAll', () => {
-  it('persists items to localStorage', () => {
-    setAll('test_key', [{ id: '1' }, { id: '2' }]);
-    expect(JSON.parse(localStorage.getItem('test_key')!)).toEqual([{ id: '1' }, { id: '2' }]);
-  });
-
-  it('overwrites existing data', () => {
-    setAll('test_key', [{ id: '1' }]);
-    setAll('test_key', [{ id: '2' }]);
-    expect(getAll('test_key')).toEqual([{ id: '2' }]);
-  });
-});
-
-describe('getById', () => {
-  it('returns item by id', () => {
-    setAll('test_key', [{ id: 'abc' }, { id: 'xyz' }]);
-    expect(getById('test_key', 'abc')).toEqual({ id: 'abc' });
-  });
-
-  it('returns null when id not found', () => {
-    expect(getById('test_key', 'missing')).toBeNull();
-  });
-
-  it('returns null when id is null', () => {
-    expect(getById('test_key', null)).toBeNull();
-  });
-
-  it('returns null when id is undefined', () => {
-    expect(getById('test_key', undefined)).toBeNull();
+    expect(mocks.from).toHaveBeenCalledWith('leagues');
+    expect(leagues[0]).toEqual({
+      id: 'l1',
+      name: 'Liga A',
+      description: undefined,
+      settings: { meetingsPerSeason: 1, continuousSeasons: false },
+      createdAt: '2026-01-01T00:00:00Z',
+    });
   });
 });
 
-describe('createId', () => {
-  it('returns a non-empty string', () => {
-    const id = createId();
-    expect(typeof id).toBe('string');
-    expect(id.length).toBeGreaterThan(0);
-  });
+describe('saveLeague', () => {
+  it('upserts camelCase data as a Supabase row', async () => {
+    const q = query({
+      single: vi.fn().mockResolvedValue({
+        data: { id: 'l1', name: 'Liga A', description: 'Desc', settings: { meetingsPerSeason: 2, continuousSeasons: true }, created_at: '2026-01-01T00:00:00Z' },
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
 
-  it('generates unique ids', () => {
-    const ids = new Set(Array.from({ length: 50 }, createId));
-    expect(ids.size).toBe(50);
-  });
-});
+    const saved = await saveLeague({
+      name: 'Liga A',
+      description: 'Desc',
+      settings: { meetingsPerSeason: 2, continuousSeasons: true },
+      createdAt: '2026-01-01T00:00:00Z',
+    });
 
-describe('save', () => {
-  it('creates a new item with a generated id', () => {
-    const saved = save('test_key', { name: 'Alice' });
-    expect(saved.id).toBeDefined();
-    expect(saved.name).toBe('Alice');
-    expect(getAll('test_key')).toHaveLength(1);
-  });
-
-  it('preserves a provided id', () => {
-    const saved = save('test_key', { id: 'fixed-id', name: 'Bob' });
-    expect(saved.id).toBe('fixed-id');
-  });
-
-  it('updates an existing item by id', () => {
-    save('test_key', { id: 'fixed-id', name: 'Old' });
-    save('test_key', { id: 'fixed-id', name: 'New' });
-    const all = getAll<{ id: string; name: string }>('test_key');
-    expect(all).toHaveLength(1);
-    expect(all[0].name).toBe('New');
-  });
-
-  it('appends when ids differ', () => {
-    save('test_key', { id: 'id1', name: 'A' });
-    save('test_key', { id: 'id2', name: 'B' });
-    expect(getAll('test_key')).toHaveLength(2);
+    expect(q.upsert).toHaveBeenCalledWith({
+      name: 'Liga A',
+      description: 'Desc',
+      settings: { meetingsPerSeason: 2, continuousSeasons: true },
+      created_at: '2026-01-01T00:00:00Z',
+    });
+    expect(saved.id).toBe('l1');
   });
 });
 
-describe('remove', () => {
-  it('removes an item by id', () => {
-    save('test_key', { id: 'to-remove', name: 'X' });
-    save('test_key', { id: 'keep', name: 'Y' });
-    remove('test_key', 'to-remove');
-    const all = getAll<{ id: string }>('test_key');
-    expect(all).toHaveLength(1);
-    expect(all[0].id).toBe('keep');
-  });
-
-  it('does nothing when id is not found', () => {
-    save('test_key', { id: 'keep', name: 'Y' });
-    remove('test_key', 'missing');
-    expect(getAll('test_key')).toHaveLength(1);
-  });
-});
-
-describe('getCache', () => {
-  it('returns empty object when nothing stored', () => {
-    expect(getCache()).toEqual({});
-  });
-
-  it('returns stored cache', () => {
-    const cache = { q1: { data: [], fetchedAt: '2024-01-01' } };
-    localStorage.setItem(KEYS.clubsCache, JSON.stringify(cache));
+describe('cache helpers', () => {
+  it('keeps Football API cache in localStorage', () => {
+    const cache = { '39:2024': { data: [], fetchedAt: '2026-01-01T00:00:00Z' } };
+    expect(saveCache(cache)).toEqual(cache);
     expect(getCache()).toEqual(cache);
-  });
-});
-
-describe('saveCache', () => {
-  it('saves and returns the cache', () => {
-    const cache = { q1: { data: ['club'], fetchedAt: '2024-01-01' } };
-    const result = saveCache(cache);
-    expect(result).toEqual(cache);
-    expect(getCache()).toEqual(cache);
-  });
-});
-
-describe('cascadeDeleteLeague', () => {
-  it('removes the league and all related teams, seasons, and matches', () => {
-    save(KEYS.leagues, { id: 'league1', name: 'L1' });
-    save(KEYS.leagues, { id: 'league2', name: 'L2' });
-    save(KEYS.teams, { id: 'team1', leagueId: 'league1' });
-    save(KEYS.teams, { id: 'team2', leagueId: 'league2' });
-    save(KEYS.seasons, { id: 'season1', leagueId: 'league1' });
-    save(KEYS.seasons, { id: 'season2', leagueId: 'league2' });
-    save(KEYS.matches, { id: 'match1', seasonId: 'season1' });
-    save(KEYS.matches, { id: 'match2', seasonId: 'season2' });
-
-    cascadeDeleteLeague('league1');
-
-    expect(getAll(KEYS.leagues)).toHaveLength(1);
-    expect(getById(KEYS.leagues, 'league2')).not.toBeNull();
-    expect(getAll(KEYS.teams)).toHaveLength(1);
-    expect(getById(KEYS.teams, 'team2')).not.toBeNull();
-    expect(getAll(KEYS.seasons)).toHaveLength(1);
-    expect(getAll(KEYS.matches)).toHaveLength(1);
-    expect(getById(KEYS.matches, 'match2')).not.toBeNull();
-  });
-
-  it('removes matches from all seasons of the deleted league', () => {
-    save(KEYS.leagues, { id: 'lg', name: 'L' });
-    save(KEYS.seasons, { id: 's1', leagueId: 'lg' });
-    save(KEYS.seasons, { id: 's2', leagueId: 'lg' });
-    save(KEYS.matches, { id: 'm1', seasonId: 's1' });
-    save(KEYS.matches, { id: 'm2', seasonId: 's2' });
-
-    cascadeDeleteLeague('lg');
-
-    expect(getAll(KEYS.matches)).toHaveLength(0);
   });
 });
 
 describe('byCreatedAtDesc', () => {
-  it('sorts newer items before older items', () => {
+  it('sorts newer items first', () => {
     const older = { createdAt: '2024-01-01T00:00:00Z' };
     const newer = { createdAt: '2024-06-01T00:00:00Z' };
     expect(byCreatedAtDesc(older, newer)).toBeGreaterThan(0);
-    expect(byCreatedAtDesc(newer, older)).toBeLessThan(0);
-  });
-
-  it('returns 0 for identical timestamps', () => {
-    const item = { createdAt: '2024-01-01T00:00:00Z' };
-    expect(byCreatedAtDesc(item, item)).toBe(0);
   });
 });

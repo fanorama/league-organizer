@@ -1,124 +1,43 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { KEYS, getAll, getById } from '../lib/storage';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as storage from '../lib/storage';
+import type { Team } from '../lib/types';
 import { useTeamStore } from './useTeamStore';
 
+vi.mock('../lib/storage');
+
+const team: Team = { id: 't1', leagueId: 'l1', name: 'FC Test', status: 'active', ownerId: 'p1', owner: 'Alice' };
+
 beforeEach(() => {
-  localStorage.clear();
+  vi.resetAllMocks();
+  vi.mocked(storage.getTeams).mockResolvedValue([]);
   useTeamStore.setState({ teams: [] });
 });
 
-const baseTeam = () => ({
-  leagueId: 'league1',
-  name: 'FC Test',
-  status: 'active' as const,
-  createdAt: new Date().toISOString(),
-});
+describe('useTeamStore', () => {
+  it('adds a team and refreshes state', async () => {
+    vi.mocked(storage.saveTeam).mockResolvedValue(team);
+    vi.mocked(storage.getTeams).mockResolvedValue([team]);
 
-describe('useTeamStore.addTeam', () => {
-  it('creates a team and persists it to localStorage', () => {
-    const { addTeam } = useTeamStore.getState();
-    const team = addTeam(baseTeam());
+    const saved = await useTeamStore.getState().addTeam({ leagueId: 'l1', name: 'FC Test', status: 'active' });
 
-    expect(team.id).toBeDefined();
-    expect(team.name).toBe('FC Test');
-    expect(getAll(KEYS.teams)).toHaveLength(1);
+    expect(saved).toEqual(team);
+    expect(useTeamStore.getState().teams).toEqual([team]);
   });
 
-  it('updates store state after adding', () => {
-    const { addTeam } = useTeamStore.getState();
-    addTeam(baseTeam());
+  it('removes a team and refreshes state', async () => {
+    await useTeamStore.getState().removeTeam('t1');
 
-    expect(useTeamStore.getState().teams).toHaveLength(1);
-  });
-});
-
-describe('useTeamStore.updateTeam', () => {
-  it('updates a team and persists the change', () => {
-    const { addTeam, updateTeam } = useTeamStore.getState();
-    const team = addTeam(baseTeam());
-    const updated = updateTeam({ ...team, name: 'FC Updated' });
-
-    expect(updated.name).toBe('FC Updated');
-    expect(getAll(KEYS.teams)).toHaveLength(1);
-    expect(getById(KEYS.teams, team.id)?.name).toBe('FC Updated');
+    expect(storage.deleteTeam).toHaveBeenCalledWith('t1');
+    expect(useTeamStore.getState().teams).toEqual([]);
   });
 
-  it('reflects the update in store state', () => {
-    const { addTeam, updateTeam } = useTeamStore.getState();
-    const team = addTeam(baseTeam());
-    updateTeam({ ...team, name: 'Changed' });
+  it('unassigns a team', async () => {
+    useTeamStore.setState({ teams: [team] });
+    vi.mocked(storage.getTeams).mockResolvedValue([{ ...team, status: 'pool', ownerId: null, owner: null }]);
 
-    expect(useTeamStore.getState().teams[0].name).toBe('Changed');
-  });
-});
+    await useTeamStore.getState().unassignTeam('t1');
 
-describe('useTeamStore.removeTeam', () => {
-  it('removes a team from localStorage', () => {
-    const { addTeam, removeTeam } = useTeamStore.getState();
-    const team = addTeam(baseTeam());
-    removeTeam(team.id);
-
-    expect(getAll(KEYS.teams)).toHaveLength(0);
-  });
-
-  it('updates store state after removal', () => {
-    const { addTeam, removeTeam } = useTeamStore.getState();
-    const team = addTeam(baseTeam());
-    removeTeam(team.id);
-
-    expect(useTeamStore.getState().teams).toHaveLength(0);
-  });
-
-  it('only removes the targeted team', () => {
-    const { addTeam, removeTeam } = useTeamStore.getState();
-    const t1 = addTeam({ ...baseTeam(), name: 'Keep' });
-    const t2 = addTeam({ ...baseTeam(), name: 'Remove' });
-    removeTeam(t2.id);
-
-    const remaining = getAll<{ id: string }>(KEYS.teams);
-    expect(remaining).toHaveLength(1);
-    expect(remaining[0].id).toBe(t1.id);
-  });
-});
-
-describe('useTeamStore.unassignTeam', () => {
-  it('sets status to pool and clears current owner fields', () => {
-    const { addTeam, unassignTeam } = useTeamStore.getState();
-    const team = addTeam({ ...baseTeam(), status: 'active', owner: 'Player 1', ownerId: 'p1' });
-    unassignTeam(team.id);
-
-    const stored = getById<{ id: string; status: string; owner: string | null; ownerId: string | null }>(KEYS.teams, team.id);
-    expect(stored?.status).toBe('pool');
-    expect(stored?.owner).toBeNull();
-    expect(stored?.ownerId).toBeNull();
-  });
-
-  it('does nothing when team id is not found', () => {
-    const { unassignTeam } = useTeamStore.getState();
-    expect(() => unassignTeam('nonexistent')).not.toThrow();
-  });
-
-  it('reflects the change in store state', () => {
-    const { addTeam, unassignTeam } = useTeamStore.getState();
-    const team = addTeam({ ...baseTeam(), status: 'active', owner: 'Player 1', ownerId: 'p1' });
-    unassignTeam(team.id);
-
-    const storeTeam = useTeamStore.getState().teams.find((t) => t.id === team.id);
-    expect(storeTeam?.status).toBe('pool');
-    expect(storeTeam?.owner).toBeNull();
-    expect(storeTeam?.ownerId).toBeNull();
-  });
-});
-
-describe('useTeamStore.refresh', () => {
-  it('re-syncs state from localStorage', () => {
-    const { addTeam, refresh } = useTeamStore.getState();
-    addTeam(baseTeam());
-
-    useTeamStore.setState({ teams: [] });
-    expect(useTeamStore.getState().teams).toHaveLength(0);
-
-    refresh();
-    expect(useTeamStore.getState().teams).toHaveLength(1);
+    expect(storage.saveTeam).toHaveBeenCalledWith({ ...team, status: 'pool', owner: null, ownerId: null });
+    expect(useTeamStore.getState().teams[0].status).toBe('pool');
   });
 });

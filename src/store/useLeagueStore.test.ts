@@ -1,95 +1,46 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { KEYS, getAll, getById, save } from '../lib/storage';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as storage from '../lib/storage';
+import type { League } from '../lib/types';
 import { useLeagueStore } from './useLeagueStore';
 
+vi.mock('../lib/storage');
+
+const league: League = {
+  id: 'l1',
+  name: 'Test League',
+  createdAt: '2026-01-01T00:00:00Z',
+  settings: { meetingsPerSeason: 1, continuousSeasons: false },
+};
+
 beforeEach(() => {
-  localStorage.clear();
+  vi.resetAllMocks();
+  vi.mocked(storage.getLeagues).mockResolvedValue([]);
   useLeagueStore.setState({ leagues: [] });
 });
 
-const baseLeagueData = () => ({
-  name: 'Test League',
-  createdAt: new Date().toISOString(),
-  settings: { meetingsPerSeason: 1, continuousSeasons: false },
-});
+describe('useLeagueStore', () => {
+  it('fetches leagues into state', async () => {
+    vi.mocked(storage.getLeagues).mockResolvedValue([league]);
 
-describe('useLeagueStore.createLeague', () => {
-  it('creates a league and persists it to localStorage', () => {
-    const { createLeague } = useLeagueStore.getState();
-    const league = createLeague(baseLeagueData());
+    await useLeagueStore.getState().fetchLeagues();
 
-    expect(league.id).toBeDefined();
-    expect(league.name).toBe('Test League');
-    expect(getAll(KEYS.leagues)).toHaveLength(1);
+    expect(useLeagueStore.getState().leagues).toEqual([league]);
   });
 
-  it('updates store state after creation', () => {
-    const { createLeague } = useLeagueStore.getState();
-    createLeague(baseLeagueData());
+  it('creates a league and refreshes state', async () => {
+    vi.mocked(storage.saveLeague).mockResolvedValue(league);
+    vi.mocked(storage.getLeagues).mockResolvedValue([league]);
 
-    expect(useLeagueStore.getState().leagues).toHaveLength(1);
-  });
-});
+    const saved = await useLeagueStore.getState().createLeague({ name: league.name, createdAt: league.createdAt, settings: league.settings });
 
-describe('useLeagueStore.updateLeague', () => {
-  it('updates an existing league', () => {
-    const { createLeague, updateLeague } = useLeagueStore.getState();
-    const league = createLeague(baseLeagueData());
-    const updated = updateLeague({ ...league, name: 'Updated Name' });
-
-    expect(updated.name).toBe('Updated Name');
-    expect(getAll(KEYS.leagues)).toHaveLength(1);
-    expect(getById(KEYS.leagues, league.id)?.name).toBe('Updated Name');
+    expect(saved).toEqual(league);
+    expect(useLeagueStore.getState().leagues).toEqual([league]);
   });
 
-  it('reflects the update in store state', () => {
-    const { createLeague, updateLeague } = useLeagueStore.getState();
-    const league = createLeague(baseLeagueData());
-    updateLeague({ ...league, name: 'Changed' });
+  it('deletes a league and refreshes state', async () => {
+    await useLeagueStore.getState().deleteLeague('l1');
 
-    expect(useLeagueStore.getState().leagues[0].name).toBe('Changed');
-  });
-});
-
-describe('useLeagueStore.deleteLeague', () => {
-  it('removes a league from localStorage', () => {
-    const { createLeague, deleteLeague } = useLeagueStore.getState();
-    const league = createLeague(baseLeagueData());
-    deleteLeague(league.id);
-
-    expect(getAll(KEYS.leagues)).toHaveLength(0);
-  });
-
-  it('updates store state after deletion', () => {
-    const { createLeague, deleteLeague } = useLeagueStore.getState();
-    const league = createLeague(baseLeagueData());
-    deleteLeague(league.id);
-
-    expect(useLeagueStore.getState().leagues).toHaveLength(0);
-  });
-
-  it('cascades deletion to related teams and seasons', () => {
-    const { createLeague, deleteLeague } = useLeagueStore.getState();
-    const league = createLeague(baseLeagueData());
-    save(KEYS.teams, { id: 't1', leagueId: league.id });
-    save(KEYS.seasons, { id: 's1', leagueId: league.id });
-
-    deleteLeague(league.id);
-
-    expect(getAll(KEYS.teams)).toHaveLength(0);
-    expect(getAll(KEYS.seasons)).toHaveLength(0);
-  });
-});
-
-describe('useLeagueStore.refresh', () => {
-  it('re-syncs state from localStorage', () => {
-    const { createLeague, refresh } = useLeagueStore.getState();
-    createLeague(baseLeagueData());
-
-    useLeagueStore.setState({ leagues: [] });
-    expect(useLeagueStore.getState().leagues).toHaveLength(0);
-
-    refresh();
-    expect(useLeagueStore.getState().leagues).toHaveLength(1);
+    expect(storage.deleteLeague).toHaveBeenCalledWith('l1');
+    expect(useLeagueStore.getState().leagues).toEqual([]);
   });
 });

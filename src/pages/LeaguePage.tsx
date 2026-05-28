@@ -1,11 +1,13 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Badge } from '../components/Badge';
 import { Shell } from '../components/Shell';
 import { TeamBadge } from '../components/TeamBadge';
-import { calculatePlayerStats } from '../lib/playerStats';
+import { calculatePlayerStatsFromData } from '../lib/playerStats';
 import type { PlayoffFormat } from '../lib/types';
+import { useAuthStore } from '../store/useAuthStore';
 import { useLeagueStore } from '../store/useLeagueStore';
+import { useMatchStore } from '../store/useMatchStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useSeasonStore } from '../store/useSeasonStore';
 import { useTeamStore } from '../store/useTeamStore';
@@ -23,10 +25,17 @@ export function LeaguePage() {
   const navigate = useNavigate();
   const league = useLeagueStore((s) => s.leagues.find((item) => item.id === id));
   const updateLeague = useLeagueStore((s) => s.updateLeague);
+  const fetchLeagues = useLeagueStore((s) => s.fetchLeagues);
   const createSeason = useSeasonStore((s) => s.createSeason);
   const allSeasons = useSeasonStore((s) => s.seasons);
+  const fetchSeasons = useSeasonStore((s) => s.fetchSeasons);
   const allTeams = useTeamStore((s) => s.teams);
+  const fetchTeams = useTeamStore((s) => s.fetchTeams);
   const allPlayers = usePlayerStore((s) => s.players);
+  const fetchPlayers = usePlayerStore((s) => s.fetchPlayers);
+  const allMatches = useMatchStore((s) => s.matches);
+  const fetchMatches = useMatchStore((s) => s.fetchMatches);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   const seasons = useMemo(() => allSeasons.filter((season) => season.leagueId === id).sort((a, b) => b.number - a.number), [allSeasons, id]);
   const teams = useMemo(() => allTeams.filter((team) => team.leagueId === id && team.status === 'active' && team.ownerId), [allTeams, id]);
   const playerLeagueStats = useMemo(() => {
@@ -35,12 +44,20 @@ export function LeaguePage() {
     return playerIds
       .map((playerId) => {
         const player = allPlayers.find((candidate) => candidate.id === playerId);
-        const stats = calculatePlayerStats(playerId, id).leagues[0]?.stats;
+        const stats = calculatePlayerStatsFromData(playerId, allTeams, allSeasons, allMatches, id).leagues[0]?.stats;
         return player && stats ? { player, stats } : null;
       })
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
       .sort((a, b) => b.stats.points - a.stats.points || b.stats.gd - a.stats.gd);
-  }, [allTeams, allPlayers, id]);
+  }, [allTeams, allPlayers, allSeasons, allMatches, id]);
+
+  useEffect(() => {
+    fetchLeagues();
+    fetchSeasons();
+    fetchTeams();
+    fetchPlayers();
+    fetchMatches();
+  }, [fetchLeagues, fetchSeasons, fetchTeams, fetchPlayers, fetchMatches]);
 
   if (!league) {
     return (
@@ -57,17 +74,18 @@ export function LeaguePage() {
     formatPerRound: DEFAULT_FORMAT,
   };
 
-  function handleCreateSeason() {
+  async function handleCreateSeason() {
     if (!league) return;
-    const season = createSeason(league, teams);
+    const season = await createSeason(league, teams);
+    await fetchMatches();
     navigate(`/league/${league.id}/season/${season.id}`);
   }
 
-  function handleSettings(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSettings(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!league) return;
     const data = new FormData(event.currentTarget);
-    updateLeague({
+    await updateLeague({
       ...league,
       settings: {
         meetingsPerSeason: Number(data.get('meetingsPerSeason')),
@@ -94,9 +112,11 @@ export function LeaguePage() {
           <section className="panel">
             <div className="panel-head">
               <h2>Seasons</h2>
-              <button id="createSeason" className="btn primary" type="button" disabled={teams.length < 2} onClick={handleCreateSeason}>
-                Create season
-              </button>
+              {isAdmin ? (
+                <button id="createSeason" className="btn primary" type="button" disabled={teams.length < 2} onClick={handleCreateSeason}>
+                  Create season
+                </button>
+              ) : null}
             </div>
             <div className="panel-body">
               {teams.length < 2 ? <div className="empty">Add at least two teams before creating a season.</div> : null}
@@ -165,9 +185,10 @@ export function LeaguePage() {
           ) : null}
         </div>
         <aside className="list">
-          <section className="card">
-            <h2>League settings</h2>
-            <form id="settingsForm" className="list" onSubmit={handleSettings}>
+          {isAdmin ? (
+            <section className="card">
+              <h2>League settings</h2>
+              <form id="settingsForm" className="list" onSubmit={handleSettings}>
               <div className="field">
                 <label>Meetings per season</label>
                 <select name="meetingsPerSeason" defaultValue={league.settings.meetingsPerSeason}>
@@ -219,11 +240,12 @@ export function LeaguePage() {
                   <input name="fmtGrandFinal" type="number" min="1" max="3" defaultValue={playoffSettings.formatPerRound.grandFinal} />
                 </div>
               </div>
-              <button className="btn" type="submit">
-                Save
-              </button>
-            </form>
-          </section>
+                <button className="btn" type="submit">
+                  Save
+                </button>
+              </form>
+            </section>
+          ) : null}
           <section className="card">
             <h2>Teams</h2>
             {teams.length ? (

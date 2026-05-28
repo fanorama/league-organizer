@@ -1,4 +1,4 @@
-import { KEYS, getAll } from './storage';
+import { getMatches, getSeasons, getTeams } from './storage';
 import type { Match, Season, Team } from './types';
 
 export interface PlayerStats {
@@ -44,11 +44,14 @@ export interface H2HStats {
   gfB: number;
 }
 
-export function calculatePlayerStats(playerId: string, filterLeagueId?: string): PlayerStats {
-  const allTeams = getAll<Team>(KEYS.teams);
+export function calculatePlayerStatsFromData(
+  playerId: string,
+  allTeams: Team[],
+  seasons: Season[],
+  matches: Match[],
+  filterLeagueId?: string,
+): PlayerStats {
   const teamMap = new Map(allTeams.map((team) => [team.id, team]));
-  const seasons = getAll<Season>(KEYS.seasons);
-  const matches = getAll<Match>(KEYS.matches);
   const leagueMap = new Map<string, LeagueStats>();
 
   for (const season of seasons) {
@@ -126,9 +129,12 @@ export function calculatePlayerStats(playerId: string, filterLeagueId?: string):
   return { playerId, leagues, totals };
 }
 
-export function calculateHeadToHead(playerAId: string, playerBId: string): H2HStats {
-  const seasons = getAll<Season>(KEYS.seasons);
-  const matches = getAll<Match>(KEYS.matches);
+export async function calculatePlayerStats(playerId: string, filterLeagueId?: string): Promise<PlayerStats> {
+  const [allTeams, seasons, matches] = await Promise.all([getTeams(), getSeasons(), getMatches()]);
+  return calculatePlayerStatsFromData(playerId, allTeams, seasons, matches, filterLeagueId);
+}
+
+export function calculateHeadToHeadFromData(playerAId: string, playerBId: string, seasons: Season[], matches: Match[]): H2HStats {
   const h2h: H2HStats = { playerAId, playerBId, played: 0, winsA: 0, draws: 0, winsB: 0, gfA: 0, gfB: 0 };
 
   for (const match of matches) {
@@ -154,6 +160,11 @@ export function calculateHeadToHead(playerAId: string, playerBId: string): H2HSt
   }
 
   return h2h;
+}
+
+export async function calculateHeadToHead(playerAId: string, playerBId: string): Promise<H2HStats> {
+  const [seasons, matches] = await Promise.all([getSeasons(), getMatches()]);
+  return calculateHeadToHeadFromData(playerAId, playerBId, seasons, matches);
 }
 
 function addMatchResult(stats: AggregatedStats, gf: number, ga: number): void {

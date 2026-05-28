@@ -72,15 +72,27 @@ Auth state disimpan di Zustand store `useAuthStore.ts` (baru), di-init di `App.t
 
 ## Progress
 
-- [ ] Plan approved for execution.
-- [ ] Phase 1: Supabase project setup (manual steps)
-- [ ] Phase 2: Install client & init
-- [ ] Phase 3: Rewrite storage layer
-- [ ] Phase 4: Update Zustand stores ke async
-- [ ] Phase 5: Auth — LoginPage + Shell
-- [ ] Phase 6: Conditional write UI
-- [ ] Phase 7: Update tests
-- [ ] Final verification pending.
+- [x] Plan approved for execution.
+- [x] Phase 1: Supabase project setup (manual steps)
+- [x] Phase 2: Install client & init
+- [x] Phase 3: Rewrite storage layer
+- [x] Phase 4: Update Zustand stores ke async
+- [x] Phase 5: Auth — LoginPage + Shell
+- [x] Phase 6: Conditional write UI
+- [x] Phase 7: Update tests
+- [-] Final verification pending.
+
+- 2026-05-28 03:26:05 WIB — Started Phase 1 in Interactive mode because the plan changes auth/RLS/database setup. Confirmed the phase is manual dashboard work and `.env.local` is not present in the workspace yet, so Phase 1 cannot be verified from local files.
+- 2026-05-28 03:31:09 WIB — Resumed after user confirmation. Verified `.env.local` exists and contains `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` without printing secret values. Marked Phase 1 complete based on user continuation plus local env evidence; dashboard/Vercel setup remains a manual prerequisite outside this workspace.
+- 2026-05-28 03:31:09 WIB — Started Phase 2: install Supabase client, create client singleton, and update `.env.example`.
+- 2026-05-28 03:33:00 WIB — Completed Phase 2. Installed `@supabase/supabase-js`, created `src/lib/supabase.ts`, restored `.env.example`, and verified with `npm run build` (pass).
+- 2026-05-28 03:33:00 WIB — Started Phase 3: rewrite `src/lib/storage.ts` to Supabase-backed async entity functions while keeping Football API cache in `localStorage`.
+- 2026-05-28 03:35:00 WIB — Blocked before editing `src/lib/storage.ts`: Phase 3 requires removing legacy storage APIs (`KEYS`, `getAll`, `setAll`, `getById`, `createId`, `save`, `remove`, `cascadeDeleteLeague`), but non-store source files still import them, including `src/lib/schedule.ts`, `src/lib/standings.ts`, `src/lib/playerStats.ts`, `src/main.tsx`, and `src/pages/SeasonPage.tsx`. The plan explicitly forbids touching `src/lib/schedule.ts`, making the later build gates impossible as written.
+- 2026-05-28 03:55:00 WIB — Completed source migration for Phases 3-6 under approved expanded scope. Rewrote `storage.ts`, converted stores and storage-dependent helpers to async/data-driven APIs, removed localStorage bootstrap migrations from `main.tsx`, added auth/login, and gated write UI. Build verification now fails only because tests still import removed legacy storage APIs, so Phase 7 is in progress.
+- 2026-05-28 03:50:29 WIB — Completed Phase 7 test rewrite. `npm run test:run` passed: 15 files, 43 tests.
+- 2026-05-28 03:50:41 WIB — Coverage verification passed with `npm run coverage`: 15 files, 43 tests.
+- 2026-05-28 03:51:00 WIB — Final automated build verification passed with `npm run build`.
+- 2026-05-28 03:51:00 WIB — Started dev server for manual validation at `http://localhost:5174/` because port 5173 was already in use.
 
 ## Phases
 
@@ -149,17 +161,21 @@ Rollback: karena fresh start (tidak ada data lama), rollback cukup revert commit
 
 ## Surprises & Discoveries
 
-None yet.
+- 2026-05-28 03:26:05 WIB — `.env.local` is absent. Phase 2 precondition requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to exist locally after Supabase project setup.
+- 2026-05-28 03:31:09 WIB — `.env.example` is deleted in git and an untracked `.env copy.example` exists with the expected env keys. Restoring `.env.example` for Phase 2 and leaving the untracked copy untouched.
+- 2026-05-28 03:33:00 WIB — `src/lib/supabase.ts` needed a local `/// <reference types="vite/client" />` because this repo has no existing Vite env declaration file and `tsconfig.json` constrains global types.
+- 2026-05-28 03:35:00 WIB — The migration plan covers Zustand stores and pages, but omits dependent library modules that still rely on synchronous localStorage APIs. This is a scope contradiction rather than an implementation detail.
 
 ## Decision Log
 
 - 2026-05-28 03:21:00 — Decision: `clubs_cache` tetap di localStorage. Rationale: ini adalah cache Football API, bukan data utama aplikasi; tidak perlu disimpan di DB.
 - 2026-05-28 03:21:00 — Decision: mapping camelCase↔snake_case di storage layer, bukan di types. Rationale: TypeScript types tidak berubah, mengurangi perubahan di komponen.
 - 2026-05-28 03:21:00 — Decision: auth state via `useAuthStore` Zustand + `onAuthStateChange`. Rationale: konsisten dengan pola stores yang sudah ada.
+- 2026-05-28 03:40:00 WIB — Decision: expand migration scope to update storage-dependent helper modules instead of keeping temporary legacy storage compatibility exports. Rationale: user approved a clean Supabase migration after Phase 3 revealed `schedule.ts`, `standings.ts`, `playerStats.ts`, `main.tsx`, and `SeasonPage.tsx` still depend on synchronous localStorage APIs; retaining compatibility would leave hidden localStorage-backed core behavior.
 
 ## Outcomes & Retrospective
 
-To be completed after final verification.
+Automated verification completed. Manual browser validation is pending.
 
 ## Open Questions
 

@@ -1,4 +1,29 @@
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
+
+const supabaseQuery = {
+  select: vi.fn().mockReturnThis(),
+  insert: vi.fn().mockReturnThis(),
+  update: vi.fn().mockReturnThis(),
+  delete: vi.fn().mockReturnThis(),
+  upsert: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  order: vi.fn().mockResolvedValue({ data: [], error: null }),
+  single: vi.fn().mockResolvedValue({ data: null, error: null }),
+  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+};
+
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: () => ({
+    from: vi.fn(() => supabaseQuery),
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      signInWithPassword: vi.fn(),
+      signOut: vi.fn(),
+    },
+  }),
+}));
 
 // Node.js 22+ defines localStorage as a non-functional stub (returns undefined)
 // unless --localstorage-file is provided. Install an in-memory shim so that any

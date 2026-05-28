@@ -1,22 +1,41 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Shell } from '../components/Shell';
-import { calculatePlayerStats } from '../lib/playerStats';
+import { calculatePlayerStatsFromData } from '../lib/playerStats';
+import { useAuthStore } from '../store/useAuthStore';
+import { useMatchStore } from '../store/useMatchStore';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useSeasonStore } from '../store/useSeasonStore';
+import { useTeamStore } from '../store/useTeamStore';
 
 export function PlayersPage() {
   const players = usePlayerStore((state) => state.players);
   const updatePlayer = usePlayerStore((state) => state.updatePlayer);
   const deletePlayer = usePlayerStore((state) => state.deletePlayer);
+  const fetchPlayers = usePlayerStore((state) => state.fetchPlayers);
+  const teams = useTeamStore((state) => state.teams);
+  const fetchTeams = useTeamStore((state) => state.fetchTeams);
+  const seasons = useSeasonStore((state) => state.seasons);
+  const fetchSeasons = useSeasonStore((state) => state.fetchSeasons);
+  const matches = useMatchStore((state) => state.matches);
+  const fetchMatches = useMatchStore((state) => state.fetchMatches);
+  const isAdmin = useAuthStore((state) => state.isAdmin);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+
+  useEffect(() => {
+    fetchPlayers();
+    fetchTeams();
+    fetchSeasons();
+    fetchMatches();
+  }, [fetchPlayers, fetchTeams, fetchSeasons, fetchMatches]);
 
   const leaderboard = useMemo(
     () =>
       players
-        .map((player) => ({ player, stats: calculatePlayerStats(player.id).totals }))
+        .map((player) => ({ player, stats: calculatePlayerStatsFromData(player.id, teams, seasons, matches).totals }))
         .sort((a, b) => b.stats.points - a.stats.points || b.stats.gd - a.stats.gd),
-    [players],
+    [players, teams, seasons, matches],
   );
 
   function startEdit(id: string, currentName: string) {
@@ -24,15 +43,16 @@ export function PlayersPage() {
     setEditName(currentName);
   }
 
-  function commitEdit(player: (typeof players)[number]) {
+  async function commitEdit(player: (typeof players)[number]) {
     const name = editName.trim();
-    if (name && name !== player.name) updatePlayer({ ...player, name });
+    if (name && name !== player.name) await updatePlayer({ ...player, name });
     setEditingId(null);
   }
 
-  function handleDelete(id: string, name: string) {
+  async function handleDelete(id: string, name: string) {
     if (!confirm(`Hapus player "${name}"? Statistiknya akan hilang dan tim yang dimilikinya menjadi tanpa owner.`)) return;
-    deletePlayer(id);
+    await deletePlayer(id);
+    await fetchTeams();
   }
 
   return (
@@ -67,7 +87,7 @@ export function PlayersPage() {
                   <tr key={player.id}>
                     <td className="muted">{index + 1}</td>
                     <td>
-                      {editingId === player.id ? (
+                      {isAdmin && editingId === player.id ? (
                         <form
                           onSubmit={(event) => {
                             event.preventDefault();
@@ -87,13 +107,15 @@ export function PlayersPage() {
                           />
                         </form>
                       ) : (
-                        <span onClick={() => startEdit(player.id, player.name)} style={{ cursor: 'pointer' }} title="Klik untuk edit nama">
+                        <span onClick={() => isAdmin ? startEdit(player.id, player.name) : undefined} style={{ cursor: isAdmin ? 'pointer' : undefined }} title={isAdmin ? 'Klik untuk edit nama' : undefined}>
                           <Link to={`/player/${player.id}`} onClick={(event) => event.stopPropagation()}>
                             {player.name}
                           </Link>{' '}
-                          <span className="muted" style={{ fontSize: '0.8em' }}>
-                            edit
-                          </span>
+                          {isAdmin ? (
+                            <span className="muted" style={{ fontSize: '0.8em' }}>
+                              edit
+                            </span>
+                          ) : null}
                         </span>
                       )}
                     </td>
@@ -109,9 +131,11 @@ export function PlayersPage() {
                     </td>
                     <td>{stats.championships || ''}</td>
                     <td>
-                      <button className="btn btn-xs danger" type="button" onClick={() => handleDelete(player.id, player.name)}>
-                        Remove
-                      </button>
+                      {isAdmin ? (
+                        <button className="btn btn-xs danger" type="button" onClick={() => handleDelete(player.id, player.name)}>
+                          Remove
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))}
