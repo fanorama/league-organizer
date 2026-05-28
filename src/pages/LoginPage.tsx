@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -27,16 +27,59 @@ export function LoginPage() {
   }
 
   return (
-    <div className="login-page">
-      <form className="login-form" onSubmit={handleSubmit}>
-        <h1>Admin Login</h1>
-        <input type="email" placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-        <input type="password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-        {error ? <p className="error">{error}</p> : null}
-        <button className="btn primary" type="submit" disabled={loading}>
-          {loading ? 'Logging in...' : 'Login'}
-        </button>
-      </form>
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-brand">
+          <div className="login-logo">⚽</div>
+          <span className="login-app-name">League Organizer</span>
+          <p className="login-tagline">Admin Portal</p>
+        </div>
+        <form className="login-form" onSubmit={handleSubmit}>
+          <div className="field">
+            <label htmlFor="login-email">Email</label>
+            <input
+              id="login-email"
+              type="email"
+              placeholder="admin@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="login-password">Password</label>
+            <input
+              id="login-password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          {error ? (
+            <div className="login-error" role="alert">
+              <span className="login-error-icon">!</span>
+              {error}
+            </div>
+          ) : null}
+          <button className="btn primary login-btn" type="submit" disabled={loading}>
+            {loading ? (
+              <>
+                <span className="login-spinner" />
+                Signing in…
+              </>
+            ) : (
+              'Sign In'
+            )}
+          </button>
+          <Link to="/" className="login-back-link">
+            ← Kembali ke Home
+          </Link>
+        </form>
+      </div>
     </div>
   );
 }

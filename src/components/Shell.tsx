@@ -34,18 +34,16 @@ export function Shell({ active, title, actions, children }: ShellProps) {
             <Link className={active === 'players' ? 'active' : ''} to="/players">
               Players
             </Link>
-            {!isAdmin ? (
-              <Link to="/login">Login</Link>
-            ) : null}
           </nav>
           {isAdmin ? (
-            <div className="admin-bar">
-              <span className="admin-badge">Admin</span>
-              <button className="btn btn-xs" type="button" onClick={handleLogout}>
-                Logout
-              </button>
-            </div>
-          ) : null}
+            <button className="btn btn-xs header-logout" type="button" onClick={handleLogout}>
+              Logout
+            </button>
+          ) : (
+            <Link className="btn btn-xs header-logout" to="/login">
+              Login
+            </Link>
+          )}
         </div>
       </header>
       <div className="main">
