@@ -216,6 +216,7 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 20px;
+  align-items: start;
 }
 
 /* ─── CARDS ─── */
