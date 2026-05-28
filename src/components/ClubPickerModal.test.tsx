@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ClubPickerModal } from './ClubPickerModal';
@@ -41,37 +41,84 @@ describe('ClubPickerModal', () => {
     await user.click(screen.getByRole('button', { name: 'Konfirmasi' }));
 
     await waitFor(() => {
-      expect(onConfirm).toHaveBeenCalledWith(clubs[0], clubs[1], '39');
+      expect(onConfirm).toHaveBeenCalledWith(clubs[0], clubs[1], '39', '39');
     });
   });
 
-  it('resets selections when switching competition tabs', async () => {
+  it('P2 dapat mengganti kompetisi tanpa mereset pilihan P1', async () => {
     const serieAClubs: ClubFromApi[] = [
       { id: 'int', name: 'Inter', shortName: 'INT', logo: '/inter.png' },
       { id: 'mil', name: 'Milan', shortName: 'MIL', logo: '/milan.png' },
     ];
-    vi.mocked(fetchClubs)
-      .mockResolvedValueOnce(clubs)
-      .mockResolvedValueOnce(serieAClubs);
+    vi.mocked(fetchClubs).mockImplementation(async (competitionId) => {
+      return competitionId === '135' ? serieAClubs : clubs;
+    });
+    const onConfirm = vi.fn();
     const user = userEvent.setup();
 
     render(
       <ClubPickerModal
         player1Name="Adit"
         player2Name="Bima"
+        onConfirm={onConfirm}
+        onClose={vi.fn()}
+      />,
+    );
+
+    // P1 picks Arsenal from Premier League
+    await user.click(await screen.findByRole('button', { name: 'Pilih Arsenal untuk Adit' }));
+
+    // P2 switches to Serie A
+    await user.selectOptions(screen.getByLabelText('Kompetisi Bima'), 'Serie A');
+
+    // P2's grid now shows Serie A clubs
+    expect(await screen.findByRole('button', { name: 'Pilih Inter untuk Bima' })).toBeInTheDocument();
+
+    // Konfirmasi is disabled until P2 also picks
+    expect(screen.getByRole('button', { name: 'Konfirmasi' })).toBeDisabled();
+
+    // P2 picks Inter from Serie A
+    await user.click(screen.getByRole('button', { name: 'Pilih Inter untuk Bima' }));
+    await user.click(screen.getByRole('button', { name: 'Konfirmasi' }));
+
+    expect(onConfirm).toHaveBeenCalledWith(clubs[0], serieAClubs[0], '39', '135');
+  });
+
+  it('grid pemain tetap pada kompetisi terbaru ketika fetch sebelumnya selesai lebih lambat', async () => {
+    const serieAClubs: ClubFromApi[] = [
+      { id: 'int', name: 'Inter', shortName: 'INT', logo: '/inter.png' },
+      { id: 'mil', name: 'Milan', shortName: 'MIL', logo: '/milan.png' },
+    ];
+    let resolvePremierLeague: (value: ClubFromApi[]) => void = () => undefined;
+    // P1 initial fetch (PL) is delayed; everything else resolves immediately with appropriate data
+    vi.mocked(fetchClubs)
+      .mockImplementationOnce(() => new Promise((resolve) => { resolvePremierLeague = resolve; }))
+      .mockResolvedValue(serieAClubs);
+    const user = userEvent.setup();
+
+    render(
+      <ClubPickerModal
+        player1Name="Adit"
+        player2Name="Bima"
+        initialP2CompetitionId="135"
         onConfirm={vi.fn()}
         onClose={vi.fn()}
       />,
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Pilih Arsenal untuk Adit' }));
-    await user.click(screen.getByRole('button', { name: 'Pilih Chelsea untuk Bima' }));
-    expect(screen.getByRole('button', { name: 'Konfirmasi' })).toBeEnabled();
+    // P1 switches to Serie A while their PL fetch is still pending
+    await user.selectOptions(screen.getByLabelText('Kompetisi Adit'), 'Serie A');
 
-    await user.click(screen.getByRole('button', { name: 'Serie A' }));
-
+    // P1's grid shows Serie A clubs
     expect(await screen.findByRole('button', { name: 'Pilih Inter untuk Adit' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Konfirmasi' })).toBeDisabled();
+
+    // Late PL fetch resolves — should NOT overwrite Serie A clubs in P1's grid
+    await act(async () => {
+      resolvePremierLeague(clubs);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole('button', { name: 'Pilih Inter untuk Adit' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Pilih Arsenal untuk Adit' })).not.toBeInTheDocument();
   });
 });

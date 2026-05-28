@@ -18,7 +18,8 @@ export function QuickMatchSessionPage() {
   const fetchGames = useQuickMatchStore((state) => state.fetchGames);
   const addGame = useQuickMatchStore((state) => state.addGame);
   const finishSession = useQuickMatchStore((state) => state.finishSession);
-  const [competitionId, setCompetitionId] = useState<string | undefined>();
+  const [p1CompetitionId, setP1CompetitionId] = useState<string | undefined>();
+  const [p2CompetitionId, setP2CompetitionId] = useState<string | undefined>();
   const [showClubPicker, setShowClubPicker] = useState(false);
   const [player1Club, setPlayer1Club] = useState<ClubFromApi | null>(null);
   const [player2Club, setPlayer2Club] = useState<ClubFromApi | null>(null);
@@ -58,10 +59,11 @@ export function QuickMatchSessionPage() {
     setPlayer2Score('');
   }
 
-  function handleConfirmClubs(nextPlayer1Club: ClubFromApi, nextPlayer2Club: ClubFromApi, nextCompetitionId: string) {
+  function handleConfirmClubs(nextPlayer1Club: ClubFromApi, nextPlayer2Club: ClubFromApi, nextP1CompetitionId: string, nextP2CompetitionId: string) {
     setPlayer1Club(nextPlayer1Club);
     setPlayer2Club(nextPlayer2Club);
-    setCompetitionId(nextCompetitionId);
+    setP1CompetitionId(nextP1CompetitionId);
+    setP2CompetitionId(nextP2CompetitionId);
     setShowClubPicker(false);
   }
 
@@ -139,7 +141,8 @@ export function QuickMatchSessionPage() {
         <ClubPickerModal
           player1Name={player1?.name ?? 'Player 1'}
           player2Name={player2?.name ?? 'Player 2'}
-          initialCompetitionId={competitionId}
+          initialP1CompetitionId={p1CompetitionId}
+          initialP2CompetitionId={p2CompetitionId}
           onConfirm={handleConfirmClubs}
           onClose={() => setShowClubPicker(false)}
         />
