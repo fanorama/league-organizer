@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { ClubPickerModal } from '../components/ClubPickerModal';
 import { Shell } from '../components/Shell';
-import { COMPETITIONS, fetchClubs } from '../lib/api';
 import type { ClubFromApi, QuickMatchGame } from '../lib/types';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePlayerStore } from '../store/usePlayerStore';
@@ -18,14 +18,12 @@ export function QuickMatchSessionPage() {
   const fetchGames = useQuickMatchStore((state) => state.fetchGames);
   const addGame = useQuickMatchStore((state) => state.addGame);
   const finishSession = useQuickMatchStore((state) => state.finishSession);
-  const [competitionId, setCompetitionId] = useState(COMPETITIONS[0].id);
-  const [clubs, setClubs] = useState<ClubFromApi[]>([]);
-  const [player1ClubId, setPlayer1ClubId] = useState('');
-  const [player2ClubId, setPlayer2ClubId] = useState('');
+  const [competitionId, setCompetitionId] = useState<string | undefined>();
+  const [showClubPicker, setShowClubPicker] = useState(false);
+  const [player1Club, setPlayer1Club] = useState<ClubFromApi | null>(null);
+  const [player2Club, setPlayer2Club] = useState<ClubFromApi | null>(null);
   const [player1Score, setPlayer1Score] = useState('');
   const [player2Score, setPlayer2Score] = useState('');
-  const [loadingClubs, setLoadingClubs] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchPlayers();
@@ -41,26 +39,9 @@ export function QuickMatchSessionPage() {
   const aggregate = useMemo(() => calculateAggregate(games), [games]);
   const readOnly = session?.status === 'finished' || !isAdmin;
 
-  async function loadClubs(nextCompetitionId = competitionId) {
-    setLoadingClubs(true);
-    setError('');
-    try {
-      const data = await fetchClubs(nextCompetitionId);
-      setClubs(data);
-      setPlayer1ClubId('');
-      setPlayer2ClubId('');
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to load clubs.');
-    } finally {
-      setLoadingClubs(false);
-    }
-  }
-
   async function handleAddGame(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!session || readOnly) return;
-    const player1Club = clubs.find((club) => club.id === player1ClubId);
-    const player2Club = clubs.find((club) => club.id === player2ClubId);
     const score1 = Number(player1Score);
     const score2 = Number(player2Score);
     if (!player1Club || !player2Club || Number.isNaN(score1) || Number.isNaN(score2)) return;
@@ -75,6 +56,13 @@ export function QuickMatchSessionPage() {
     });
     setPlayer1Score('');
     setPlayer2Score('');
+  }
+
+  function handleConfirmClubs(nextPlayer1Club: ClubFromApi, nextPlayer2Club: ClubFromApi, nextCompetitionId: string) {
+    setPlayer1Club(nextPlayer1Club);
+    setPlayer2Club(nextPlayer2Club);
+    setCompetitionId(nextCompetitionId);
+    setShowClubPicker(false);
   }
 
   async function handleFinish() {
@@ -127,47 +115,35 @@ export function QuickMatchSessionPage() {
           <section className="card">
             <h2>Input game</h2>
             <form className="list" onSubmit={handleAddGame}>
-              <div className="field">
-                <label>Competition</label>
-                <select
-                  value={competitionId}
-                  onChange={(event) => {
-                    setCompetitionId(event.target.value);
-                    loadClubs(event.target.value);
-                  }}
-                >
-                  {COMPETITIONS.map((item) => (
-                    <option value={item.id} key={item.id}>{item.name} - {item.country}</option>
-                  ))}
-                </select>
+              <div className="quick-club-selection">
+                <SelectedClub label={player1?.name ?? 'Player 1'} club={player1Club} />
+                <SelectedClub label={player2?.name ?? 'Player 2'} club={player2Club} alignRight />
               </div>
-              <button className="btn" type="button" onClick={() => loadClubs()} disabled={loadingClubs}>
-                {loadingClubs ? 'Loading...' : 'Load clubs'}
-              </button>
-              {error ? <div className="muted" style={{ color: 'var(--danger)' }}>{error}</div> : null}
-              <div className="field">
-                <label>{player1?.name ?? 'Player 1'} club</label>
-                <ClubSelect clubs={clubs} value={player1ClubId} onChange={setPlayer1ClubId} />
-              </div>
-              <div className="field">
-                <label>{player2?.name ?? 'Player 2'} club</label>
-                <ClubSelect clubs={clubs} value={player2ClubId} onChange={setPlayer2ClubId} />
-              </div>
+              <button className="btn" type="button" onClick={() => setShowClubPicker(true)}>Pilih Klub</button>
               <div className="form-grid">
                 <div className="field">
-                  <label>{player1?.name ?? 'Player 1'} score</label>
-                  <input min={0} type="number" value={player1Score} onChange={(event) => setPlayer1Score(event.target.value)} required />
+                  <label htmlFor="quick-player1-score">Skor {player1?.name ?? 'Player 1'}</label>
+                  <input id="quick-player1-score" min={0} type="number" value={player1Score} onChange={(event) => setPlayer1Score(event.target.value)} required />
                 </div>
                 <div className="field">
-                  <label>{player2?.name ?? 'Player 2'} score</label>
-                  <input min={0} type="number" value={player2Score} onChange={(event) => setPlayer2Score(event.target.value)} required />
+                  <label htmlFor="quick-player2-score">Skor {player2?.name ?? 'Player 2'}</label>
+                  <input id="quick-player2-score" min={0} type="number" value={player2Score} onChange={(event) => setPlayer2Score(event.target.value)} required />
                 </div>
               </div>
-              <button className="btn primary" type="submit" disabled={!clubs.length}>Simpan game</button>
+              <button className="btn primary" type="submit" disabled={!player1Club || !player2Club}>Simpan game</button>
             </form>
           </section>
         ) : null}
       </div>
+      {showClubPicker ? (
+        <ClubPickerModal
+          player1Name={player1?.name ?? 'Player 1'}
+          player2Name={player2?.name ?? 'Player 2'}
+          initialCompetitionId={competitionId}
+          onConfirm={handleConfirmClubs}
+          onClose={() => setShowClubPicker(false)}
+        />
+      ) : null}
     </Shell>
   );
 }
@@ -193,14 +169,12 @@ function ScoreBlock({ name, wins, alignRight }: { name: string; wins: number; al
   );
 }
 
-function ClubSelect({ clubs, value, onChange }: { clubs: ClubFromApi[]; value: string; onChange: (value: string) => void }) {
+function SelectedClub({ label, club, alignRight }: { label: string; club: ClubFromApi | null; alignRight?: boolean }) {
   return (
-    <select value={value} onChange={(event) => onChange(event.target.value)} required disabled={!clubs.length}>
-      <option value="">-- Pilih klub --</option>
-      {clubs.map((club) => (
-        <option value={club.id} key={club.id}>{club.name}</option>
-      ))}
-    </select>
+    <div className={alignRight ? 'quick-selected-club right' : 'quick-selected-club'}>
+      <span className="muted">{label}</span>
+      {club ? <ClubLine club={club} alignRight={alignRight} /> : <strong>Belum dipilih</strong>}
+    </div>
   );
 }
 
