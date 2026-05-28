@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">90% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/9</span>
+                <span class='fraction'>9/10</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">80% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>4/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">88.88% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>8/9</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -92,7 +92,14 @@
 <a name='L27'></a><a href='#L27'>27</a>
 <a name='L28'></a><a href='#L28'>28</a>
 <a name='L29'></a><a href='#L29'>29</a>
-<a name='L30'></a><a href='#L30'>30</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -101,54 +108,68 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { create } from 'zustand';
-import { KEYS, getAll, save } from '../lib/storage';
 import { createSeasonWithSchedule } from '../lib/schedule';
+import { getSeasons, saveSeason } from '../lib/storage';
 import type { League, Season, Team } from '../lib/types';
 &nbsp;
 interface SeasonStore {
   seasons: Season[];
-  createSeason: (league: League, teams: Team[]) =&gt; Season;
-  updateSeason: (season: Season) =&gt; Season;
-  refresh: () =&gt; void;
+  fetchSeasons: () =&gt; Promise&lt;void&gt;;
+  createSeason: (league: League, teams: Team[]) =&gt; Promise&lt;Season&gt;;
+  updateSeason: (season: Season) =&gt; Promise&lt;Season&gt;;
+  refresh: () =&gt; Promise&lt;void&gt;;
 }
 &nbsp;
-export const <span class="cstat-no" title="statement not covered" >useSeasonStore = <span class="fstat-no" title="function not covered" >create&lt;SeasonStore&gt;((s</span>et) =&gt; (<span class="cstat-no" title="statement not covered" >{</span></span>
-  seasons: getAll&lt;Season&gt;(KEYS.seasons),
+export const useSeasonStore = create&lt;SeasonStore&gt;((set) =&gt; ({
+  seasons: [],
 &nbsp;
-<span class="fstat-no" title="function not covered" >  createSeason: (l</span>eague, teams) =&gt; {
-    const <span class="cstat-no" title="statement not covered" >season = createSeasonWithSchedule(league, teams);</span>
-<span class="cstat-no" title="statement not covered" >    set({ seasons: getAll&lt;Season&gt;(KEYS.seasons) });</span>
-<span class="cstat-no" title="statement not covered" >    return season;</span>
+  fetchSeasons: async () =&gt; {
+    set({ seasons: await getSeasons() });
   },
 &nbsp;
-<span class="fstat-no" title="function not covered" >  updateSeason: (s</span>eason) =&gt; {
-    const <span class="cstat-no" title="statement not covered" >updated = save&lt;Season&gt;(KEYS.seasons, season);</span>
-<span class="cstat-no" title="statement not covered" >    set({ seasons: getAll&lt;Season&gt;(KEYS.seasons) });</span>
-<span class="cstat-no" title="statement not covered" >    return updated;</span>
+  createSeason: async (league, teams) =&gt; {
+    const season = await createSeasonWithSchedule(league, teams);
+    set({ seasons: await getSeasons() });
+    return season;
   },
 &nbsp;
-<span class="fstat-no" title="function not covered" >  refresh: () =&gt; <span class="cstat-no" title="statement not covered" >s</span>et({ seasons: getAll&lt;Season&gt;(KEYS.seasons) }),</span>
+  updateSeason: async (season) =&gt; {
+    const updated = await saveSeason(season);
+    set({ seasons: await getSeasons() });
+    return updated;
+  },
+&nbsp;
+  refresh: <span class="fstat-no" title="function not covered" >async () =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    set({ seasons: await getSeasons() });</span>
+  },
 }));
 &nbsp;</pre></td></tr></table></pre>
 
@@ -157,7 +178,7 @@ export const <span class="cstat-no" title="statement not covered" >useSeasonStor
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-27T13:49:10.801Z
+                at 2026-05-27T20:50:49.790Z
             </div>
         <script src="../prettify.js"></script>
         <script>

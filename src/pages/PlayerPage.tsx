@@ -1,19 +1,38 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Shell } from '../components/Shell';
-import { calculateHeadToHead, calculatePlayerStats, type AggregatedStats, type H2HStats } from '../lib/playerStats';
+import { calculateHeadToHeadFromData, calculatePlayerStatsFromData, type AggregatedStats, type H2HStats } from '../lib/playerStats';
 import { useLeagueStore } from '../store/useLeagueStore';
+import { useMatchStore } from '../store/useMatchStore';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useSeasonStore } from '../store/useSeasonStore';
+import { useTeamStore } from '../store/useTeamStore';
 
 export function PlayerPage() {
   const { id } = useParams<{ id: string }>();
   const players = usePlayerStore((state) => state.players);
+  const fetchPlayers = usePlayerStore((state) => state.fetchPlayers);
   const leagues = useLeagueStore((state) => state.leagues);
+  const fetchLeagues = useLeagueStore((state) => state.fetchLeagues);
+  const teams = useTeamStore((state) => state.teams);
+  const fetchTeams = useTeamStore((state) => state.fetchTeams);
+  const seasons = useSeasonStore((state) => state.seasons);
+  const fetchSeasons = useSeasonStore((state) => state.fetchSeasons);
+  const matches = useMatchStore((state) => state.matches);
+  const fetchMatches = useMatchStore((state) => state.fetchMatches);
   const [h2hOpponentId, setH2hOpponentId] = useState('');
 
+  useEffect(() => {
+    fetchPlayers();
+    fetchLeagues();
+    fetchTeams();
+    fetchSeasons();
+    fetchMatches();
+  }, [fetchPlayers, fetchLeagues, fetchTeams, fetchSeasons, fetchMatches]);
+
   const player = players.find((candidate) => candidate.id === id);
-  const stats = useMemo(() => (id ? calculatePlayerStats(id) : null), [id]);
-  const h2h = useMemo(() => (id && h2hOpponentId ? calculateHeadToHead(id, h2hOpponentId) : null), [id, h2hOpponentId]);
+  const stats = useMemo(() => (id ? calculatePlayerStatsFromData(id, teams, seasons, matches) : null), [id, teams, seasons, matches]);
+  const h2h = useMemo(() => (id && h2hOpponentId ? calculateHeadToHeadFromData(id, h2hOpponentId, seasons, matches) : null), [id, h2hOpponentId, seasons, matches]);
 
   if (!player || !stats) {
     return (

@@ -1,79 +1,296 @@
-import type { CacheEntry } from './types';
+import { supabase } from './supabase';
+import type { CacheEntry, League, Match, Player, Season, Team } from './types';
 
-export const KEYS = {
-  leagues: 'leagues',
-  teams: 'teams',
-  seasons: 'seasons',
-  matches: 'matches',
-  clubsCache: 'clubs_cache',
-  players: 'players',
-} as const;
+type DbRow = Record<string, any>;
 
-export function getAll<T = { id: string }>(key: string): T[] {
-  return JSON.parse(localStorage.getItem(key) || '[]') as T[];
+function stripUndefined(row: DbRow): DbRow {
+  return Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined && value !== ''));
 }
 
-export function setAll<T>(key: string, items: T[]): void {
-  localStorage.setItem(key, JSON.stringify(items));
+function dbToLeague(row: DbRow): League {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? undefined,
+    settings: row.settings,
+    createdAt: row.created_at,
+  };
 }
 
-export function getById<T extends { id: string } = any>(key: string, id: string | null | undefined): T | null {
-  return getAll<T>(key).find((item) => item.id === id) || null;
+function leagueToDb(league: Partial<League>): DbRow {
+  return stripUndefined({
+    id: league.id,
+    name: league.name,
+    description: league.description ?? null,
+    settings: league.settings,
+    created_at: league.createdAt,
+  });
 }
 
-export function createId(): string {
-  const browserCrypto = globalThis.crypto;
-  if (browserCrypto && typeof browserCrypto.randomUUID === 'function') {
-    return browserCrypto.randomUUID();
-  }
-
-  if (browserCrypto && typeof browserCrypto.getRandomValues === 'function') {
-    const bytes = browserCrypto.getRandomValues(new Uint8Array(16));
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0'));
-    return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10, 16).join('')}`;
-  }
-
-  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+function dbToPlayer(row: DbRow): Player {
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+  };
 }
 
-export function save<T extends object>(key: string, item: T & { id?: string }): T & { id: string } {
-  const items = getAll<T & { id: string }>(key);
-  const next = {
-    ...item,
-    id: item.id || createId(),
-  } as T & { id: string };
-  const index = items.findIndex((candidate) => candidate.id === next.id);
-  if (index >= 0) {
-    items[index] = next;
-  } else {
-    items.push(next);
-  }
-  setAll(key, items);
-  return next;
+function playerToDb(player: Partial<Player>): DbRow {
+  return stripUndefined({
+    id: player.id,
+    name: player.name,
+    created_at: player.createdAt,
+  });
 }
 
-export function remove(key: string, id: string): void {
-  setAll(key, getAll<{ id: string }>(key).filter((item) => item.id !== id));
+function dbToTeam(row: DbRow): Team {
+  return {
+    id: row.id,
+    leagueId: row.league_id,
+    name: row.name,
+    shortName: row.short_name ?? undefined,
+    badge: row.badge ?? undefined,
+    logo: row.logo ?? undefined,
+    status: row.status,
+    ownerId: row.owner_id ?? null,
+    externalId: row.external_id ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+function teamToDb(team: Partial<Team>): DbRow {
+  return stripUndefined({
+    id: team.id,
+    league_id: team.leagueId,
+    name: team.name,
+    short_name: team.shortName,
+    badge: team.badge,
+    logo: team.logo,
+    status: team.status,
+    owner_id: team.ownerId ?? null,
+    external_id: team.externalId ?? null,
+    created_at: team.createdAt,
+  });
+}
+
+function dbToSeason(row: DbRow): Season {
+  return {
+    id: row.id,
+    leagueId: row.league_id,
+    number: row.number,
+    status: row.status,
+    teamIds: row.team_ids ?? [],
+    ownerSnapshots: row.owner_snapshots ?? {},
+    champion: row.champion_id ?? null,
+    bracket: row.bracket ?? undefined,
+    startedAt: row.started_at ?? null,
+    finishedAt: row.finished_at ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+function seasonToDb(season: Partial<Season>): DbRow {
+  return stripUndefined({
+    id: season.id,
+    league_id: season.leagueId,
+    number: season.number,
+    status: season.status,
+    team_ids: season.teamIds,
+    owner_snapshots: season.ownerSnapshots,
+    champion_id: season.champion ?? null,
+    bracket: season.bracket ?? null,
+    started_at: season.startedAt ?? null,
+    finished_at: season.finishedAt ?? null,
+    created_at: season.createdAt,
+  });
+}
+
+function dbToMatch(row: DbRow): Match {
+  return {
+    id: row.id,
+    seasonId: row.season_id,
+    matchday: row.matchday,
+    homeTeamId: row.home_team_id,
+    awayTeamId: row.away_team_id,
+    homeScore: row.home_score,
+    awayScore: row.away_score,
+    status: row.status,
+    matchType: row.match_type,
+    originalMatchday: row.original_matchday,
+    scheduledDate: row.scheduled_date,
+    bracketSlot: row.bracket_slot ?? undefined,
+  };
+}
+
+function matchToDb(match: Partial<Match>): DbRow {
+  return stripUndefined({
+    id: match.id,
+    season_id: match.seasonId,
+    matchday: match.matchday,
+    home_team_id: match.homeTeamId,
+    away_team_id: match.awayTeamId,
+    home_score: match.homeScore ?? null,
+    away_score: match.awayScore ?? null,
+    status: match.status,
+    match_type: match.matchType ?? 'league',
+    original_matchday: match.originalMatchday ?? null,
+    scheduled_date: match.scheduledDate ?? null,
+    bracket_slot: match.bracketSlot ?? null,
+  });
+}
+
+export async function getLeagues(): Promise<League[]> {
+  const { data, error } = await supabase.from('leagues').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(dbToLeague);
+}
+
+export async function getLeagueById(id: string): Promise<League | null> {
+  const { data, error } = await supabase.from('leagues').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? dbToLeague(data) : null;
+}
+
+export async function saveLeague(league: Omit<League, 'id'> | League): Promise<League> {
+  const { data, error } = await supabase.from('leagues').upsert(leagueToDb(league)).select().single();
+  if (error) throw error;
+  return dbToLeague(data);
+}
+
+export async function deleteLeague(id: string): Promise<void> {
+  const { error } = await supabase.from('leagues').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function getPlayers(): Promise<Player[]> {
+  const { data, error } = await supabase.from('players').select('*').order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(dbToPlayer);
+}
+
+export async function getPlayerById(id: string): Promise<Player | null> {
+  const { data, error } = await supabase.from('players').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? dbToPlayer(data) : null;
+}
+
+export async function savePlayer(player: Omit<Player, 'id'> | Player): Promise<Player> {
+  const { data, error } = await supabase.from('players').upsert(playerToDb(player)).select().single();
+  if (error) throw error;
+  return dbToPlayer(data);
+}
+
+export async function deletePlayer(id: string): Promise<void> {
+  const { error } = await supabase.from('players').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function getTeams(): Promise<Team[]> {
+  const { data, error } = await supabase.from('teams').select('*').order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(dbToTeam);
+}
+
+export async function getTeamsByLeague(leagueId: string): Promise<Team[]> {
+  const { data, error } = await supabase.from('teams').select('*').eq('league_id', leagueId).order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(dbToTeam);
+}
+
+export async function getTeamById(id: string): Promise<Team | null> {
+  const { data, error } = await supabase.from('teams').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? dbToTeam(data) : null;
+}
+
+export async function saveTeam(team: Omit<Team, 'id'> | Team): Promise<Team> {
+  const { data, error } = await supabase.from('teams').upsert(teamToDb(team)).select().single();
+  if (error) throw error;
+  return dbToTeam(data);
+}
+
+export async function deleteTeam(id: string): Promise<void> {
+  const { error } = await supabase.from('teams').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function getSeasons(): Promise<Season[]> {
+  const { data, error } = await supabase.from('seasons').select('*').order('number', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(dbToSeason);
+}
+
+export async function getSeasonsByLeague(leagueId: string): Promise<Season[]> {
+  const { data, error } = await supabase.from('seasons').select('*').eq('league_id', leagueId).order('number', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(dbToSeason);
+}
+
+export async function getSeasonById(id: string): Promise<Season | null> {
+  const { data, error } = await supabase.from('seasons').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? dbToSeason(data) : null;
+}
+
+export async function saveSeason(season: Omit<Season, 'id'> | Season): Promise<Season> {
+  const { data, error } = await supabase.from('seasons').upsert(seasonToDb(season)).select().single();
+  if (error) throw error;
+  return dbToSeason(data);
+}
+
+export async function deleteSeason(id: string): Promise<void> {
+  const { error } = await supabase.from('seasons').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function getMatches(): Promise<Match[]> {
+  const { data, error } = await supabase.from('matches').select('*').order('matchday', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(dbToMatch);
+}
+
+export async function getMatchesBySeason(seasonId: string): Promise<Match[]> {
+  const { data, error } = await supabase.from('matches').select('*').eq('season_id', seasonId).order('matchday', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(dbToMatch);
+}
+
+export async function getMatchById(id: string): Promise<Match | null> {
+  const { data, error } = await supabase.from('matches').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? dbToMatch(data) : null;
+}
+
+export async function saveMatch(match: Omit<Match, 'id'> | Match): Promise<Match> {
+  const { data, error } = await supabase.from('matches').upsert(matchToDb(match)).select().single();
+  if (error) throw error;
+  return dbToMatch(data);
+}
+
+export async function saveMatches(matches: (Omit<Match, 'id'> | Match)[]): Promise<Match[]> {
+  if (!matches.length) return [];
+  const { data, error } = await supabase.from('matches').upsert(matches.map(matchToDb)).select();
+  if (error) throw error;
+  return (data ?? []).map(dbToMatch);
+}
+
+export async function deleteMatch(id: string): Promise<void> {
+  const { error } = await supabase.from('matches').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteMatchesBySeason(seasonId: string): Promise<void> {
+  const { error } = await supabase.from('matches').delete().eq('season_id', seasonId);
+  if (error) throw error;
 }
 
 export function getCache<T = CacheEntry>(): Record<string, T> {
-  return JSON.parse(localStorage.getItem(KEYS.clubsCache) || '{}') as Record<string, T>;
+  return JSON.parse(localStorage.getItem('clubs_cache') || '{}') as Record<string, T>;
 }
 
 export function saveCache<T>(cache: Record<string, T>): Record<string, T> {
-  localStorage.setItem(KEYS.clubsCache, JSON.stringify(cache));
+  localStorage.setItem('clubs_cache', JSON.stringify(cache));
   return cache;
-}
-
-export function cascadeDeleteLeague(leagueId: string): void {
-  const seasons = getAll<{ id: string; leagueId: string }>(KEYS.seasons).filter((season) => season.leagueId === leagueId);
-  const seasonIds = new Set(seasons.map((season) => season.id));
-  remove(KEYS.leagues, leagueId);
-  setAll(KEYS.teams, getAll<{ leagueId: string }>(KEYS.teams).filter((team) => team.leagueId !== leagueId));
-  setAll(KEYS.seasons, getAll<{ leagueId: string }>(KEYS.seasons).filter((season) => season.leagueId !== leagueId));
-  setAll(KEYS.matches, getAll<{ seasonId: string }>(KEYS.matches).filter((match) => !seasonIds.has(match.seasonId)));
 }
 
 export function byCreatedAtDesc<T extends { createdAt: string }>(a: T, b: T): number {

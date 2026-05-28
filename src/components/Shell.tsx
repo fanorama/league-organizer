@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/useAuthStore';
 
 interface ShellProps {
   active: 'leagues' | 'players';
@@ -9,6 +11,14 @@ interface ShellProps {
 }
 
 export function Shell({ active, title, actions, children }: ShellProps) {
+  const isAdmin = useAuthStore((state) => state.isAdmin);
+  const setSession = useAuthStore((state) => state.setSession);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setSession(null);
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -25,6 +35,15 @@ export function Shell({ active, title, actions, children }: ShellProps) {
               Players
             </Link>
           </nav>
+          {isAdmin ? (
+            <button className="btn btn-xs header-logout" type="button" onClick={handleLogout}>
+              Logout
+            </button>
+          ) : (
+            <Link className="btn btn-xs header-logout" to="/login">
+              Login
+            </Link>
+          )}
         </div>
       </header>
       <div className="main">

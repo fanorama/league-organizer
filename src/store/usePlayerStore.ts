@@ -1,39 +1,43 @@
 import { create } from 'zustand';
-import { KEYS, getAll, remove, save, setAll } from '../lib/storage';
-import type { Player, Team } from '../lib/types';
+import { deletePlayer, getPlayers, getTeams, savePlayer, saveTeam } from '../lib/storage';
+import type { Player } from '../lib/types';
 
 interface PlayerStore {
   players: Player[];
-  addPlayer: (data: Omit<Player, 'id'>) => Player;
-  updatePlayer: (player: Player) => Player;
-  deletePlayer: (id: string) => void;
-  refresh: () => void;
+  fetchPlayers: () => Promise<void>;
+  addPlayer: (data: Omit<Player, 'id'>) => Promise<Player>;
+  updatePlayer: (player: Player) => Promise<Player>;
+  deletePlayer: (id: string) => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 export const usePlayerStore = create<PlayerStore>((set) => ({
-  players: getAll<Player>(KEYS.players),
+  players: [],
 
-  addPlayer: (data) => {
-    const player = save<Player>(KEYS.players, { ...data, id: '' } as Player);
-    set({ players: getAll<Player>(KEYS.players) });
+  fetchPlayers: async () => {
+    set({ players: await getPlayers() });
+  },
+
+  addPlayer: async (data) => {
+    const player = await savePlayer(data);
+    set({ players: await getPlayers() });
     return player;
   },
 
-  updatePlayer: (player) => {
-    const updated = save<Player>(KEYS.players, player);
-    set({ players: getAll<Player>(KEYS.players) });
+  updatePlayer: async (player) => {
+    const updated = await savePlayer(player);
+    set({ players: await getPlayers() });
     return updated;
   },
 
-  deletePlayer: (id) => {
-    remove(KEYS.players, id);
-    const teams = getAll<Team>(KEYS.teams);
-    setAll(
-      KEYS.teams,
-      teams.map((team) => (team.ownerId === id ? { ...team, ownerId: null, owner: null } : team)),
-    );
-    set({ players: getAll<Player>(KEYS.players) });
+  deletePlayer: async (id) => {
+    await deletePlayer(id);
+    const teams = await getTeams();
+    await Promise.all(teams.filter((team) => team.ownerId === id).map((team) => saveTeam({ ...team, ownerId: null, owner: null })));
+    set({ players: await getPlayers() });
   },
 
-  refresh: () => set({ players: getAll<Player>(KEYS.players) }),
+  refresh: async () => {
+    set({ players: await getPlayers() });
+  },
 }));

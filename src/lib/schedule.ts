@@ -1,6 +1,17 @@
 // @ts-nocheck
 import { calculateStandings } from './standings';
-import { KEYS, createId, getAll, getById, save, setAll } from './storage';
+import {
+  deleteMatchesBySeason,
+  getLeagueById,
+  getMatchesBySeason,
+  getPlayers,
+  getSeasonById,
+  getSeasonsByLeague,
+  getTeamsByLeague,
+  saveMatch,
+  saveMatches,
+  saveSeason,
+} from './storage';
 import type { League, Match, PlayoffSlot, Season, Team } from './types';
 
 const ROUTING_4 = [
@@ -86,11 +97,9 @@ export function generateRoundRobin(teamIds: string[], meetingsPerSeason = 1): Ar
   ];
 }
 
-export function replaceSeasonSchedule(season: Season, teamIds: string[], meetingsPerSeason: number): Match[] {
-  const existing = getAll(KEYS.matches).filter((match) => match.seasonId !== season.id);
+export async function replaceSeasonSchedule(season: Season, teamIds: string[], meetingsPerSeason: number): Promise<Match[]> {
   const generated = generateRoundRobin(teamIds, meetingsPerSeason).flatMap((round, index) => (
     round.map((match) => ({
-      id: createId(),
       seasonId: season.id,
       matchday: index + 1,
       homeTeamId: match.homeTeamId,
@@ -102,15 +111,15 @@ export function replaceSeasonSchedule(season: Season, teamIds: string[], meeting
       scheduledDate: null
     }))
   ));
-  setAll(KEYS.matches, [...existing, ...generated]);
-  return generated;
+  await deleteMatchesBySeason(season.id);
+  return saveMatches(generated);
 }
 
-export function createSeasonWithSchedule(league: League, teams: Team[]): Season {
-  const seasons = getAll(KEYS.seasons).filter((season) => season.leagueId === league.id);
-  const players = getAll(KEYS.players);
+export async function createSeasonWithSchedule(league: League, teams: Team[]): Promise<Season> {
+  const seasons = await getSeasonsByLeague(league.id);
+  const players = await getPlayers();
   const playersById = Object.fromEntries(players.map((player) => [player.id, player]));
-  const season = save(KEYS.seasons, {
+  const season = await saveSeason({
     leagueId: league.id,
     number: seasons.length + 1,
     status: "setup",
@@ -124,7 +133,7 @@ export function createSeasonWithSchedule(league: League, teams: Team[]): Season 
     startedAt: null,
     finishedAt: null
   });
-  replaceSeasonSchedule(season, teams.map((team) => team.id), league.settings.meetingsPerSeason);
+  await replaceSeasonSchedule(season, teams.map((team) => team.id), league.settings.meetingsPerSeason);
   return season;
 }
 
@@ -171,9 +180,9 @@ export function resolveMultiLegWinnerPublic(slot: PlayoffSlot, matchRecords: Mat
   return null;
 }
 
-function addExtraLeg(season, slot, bracketName, roundIndex, slotIndex) {
+async function addExtraLeg(season, slot, bracketName, roundIndex, slotIndex) {
   const leg = slot.matchIds.length + 1;
-  const match = save(KEYS.matches, {
+  const match = await saveMatch({
     seasonId: season.id,
     matchday: 99,
     homeTeamId: slot.team1,
@@ -189,12 +198,12 @@ function addExtraLeg(season, slot, bracketName, roundIndex, slotIndex) {
   slot.matchIds.push(match.id);
 }
 
-function generatePlayoffMatchIds(season, slot, legCount, bracketName, roundIndex, slotIndex) {
+async function generatePlayoffMatchIds(season, slot, legCount, bracketName, roundIndex, slotIndex) {
   const ids = [];
   for (let leg = 1; leg <= legCount; leg += 1) {
     const homeTeamId = leg % 2 === 1 ? slot.team1 : slot.team2;
     const awayTeamId = leg % 2 === 1 ? slot.team2 : slot.team1;
-    const match = save(KEYS.matches, {
+    const match = await saveMatch({
       seasonId: season.id,
       matchday: 99,
       homeTeamId,
@@ -223,14 +232,14 @@ function getDestinationSlot(bracket, dest) {
   return rounds[dest.r]?.[dest.s];
 }
 
-function fillDestination(season, bracket, dest, teamId) {
+async function fillDestination(season, bracket, dest, teamId) {
   const destSlot = getDestinationSlot(bracket, dest);
   if (!destSlot || destSlot[dest.t] === teamId) return false;
   destSlot[dest.t] = teamId;
 
   if (destSlot.team1 && destSlot.team2 && destSlot.matchIds.length === 0 && !destSlot.bye) {
     const legCount = getLegCount(bracket.config.format, dest.b, dest.r, bracket.config.teamsCount);
-    destSlot.matchIds = generatePlayoffMatchIds(
+    destSlot.matchIds = await generatePlayoffMatchIds(
       season,
       destSlot,
       legCount,
@@ -242,24 +251,24 @@ function fillDestination(season, bracket, dest, teamId) {
   return true;
 }
 
-function advanceByes(season, bracket) {
+async function advanceByes(season, bracket) {
   let updated = false;
   if (bracket.config.teamsCount !== 6) return updated;
 
-  bracket.lower.rounds[0].forEach((slot, slotIndex) => {
-    if (!slot.bye || !slot.team1 || slot.forwarded) return;
+  for (const [slotIndex, slot] of bracket.lower.rounds[0].entries()) {
+    if (!slot.bye || !slot.team1 || slot.forwarded) continue;
     const dest = { b: "lower", r: 1, s: slotIndex, t: "team1" };
-    if (fillDestination(season, bracket, dest, slot.team1)) updated = true;
+    if (await fillDestination(season, bracket, dest, slot.team1)) updated = true;
     slot.forwarded = true;
     updated = true;
-  });
+  }
   return updated;
 }
 
-export function startPlayoff(season: Season, league: League): void {
+export async function startPlayoff(season: Season, league: League): Promise<void> {
   const playoffConfig = league.settings.playoff;
   const { teamsCount, formatPerRound } = playoffConfig;
-  const standings = calculateStandings(season.id);
+  const standings = await calculateStandings(season.id);
   const seeds = standings.slice(0, teamsCount).map((row) => row.team.id);
   const bracket = {
     seeds,
@@ -335,46 +344,51 @@ export function startPlayoff(season: Season, league: League): void {
 
   bracket.upper.rounds[0] = bracket.upper.rounds[0].map((slot, slotIndex) => {
     if (slot.bye || !slot.team1 || !slot.team2) return slot;
-    const matchIds = generatePlayoffMatchIds(season, slot, formatPerRound.upperEarly, "upper", 0, slotIndex);
-    return { ...slot, matchIds };
+    return slot;
   });
 
-  save(KEYS.seasons, { ...season, status: "playoff_active", bracket });
+  bracket.upper.rounds[0] = await Promise.all(bracket.upper.rounds[0].map(async (slot, slotIndex) => {
+    if (slot.bye || !slot.team1 || !slot.team2) return slot;
+    const matchIds = await generatePlayoffMatchIds(season, slot, formatPerRound.upperEarly, "upper", 0, slotIndex);
+    return { ...slot, matchIds };
+  }));
+
+  await saveSeason({ ...season, status: "playoff_active", bracket });
 }
 
-export function advancePlayoffRound(seasonId: string): void {
-  const season = getById(KEYS.seasons, seasonId);
+export async function advancePlayoffRound(seasonId: string): Promise<void> {
+  const season = await getSeasonById(seasonId);
   if (!season?.bracket) return;
 
   const bracket = season.bracket;
   const allMatches = Object.fromEntries(
-    getAll(KEYS.matches)
+    (await getMatchesBySeason(seasonId))
       .filter((match) => match.seasonId === seasonId && match.matchType === "playoff")
       .map((match) => [match.id, match])
   );
   const routing = getRoutingTable(bracket.config.teamsCount);
-  let updated = advanceByes(season, bracket);
+  let updated = await advanceByes(season, bracket);
 
-  routing.forEach((route) => {
+  for (const route of routing) {
     const rounds = route.from.b === "upper" ? bracket.upper.rounds : bracket.lower.rounds;
     const slot = rounds[route.from.r]?.[route.from.s];
-    if (!slot || slot.bye || !slot.team1 || !slot.team2) return;
+    if (!slot || slot.bye || !slot.team1 || !slot.team2) continue;
 
     const matchRecords = slot.matchIds.map((id) => allMatches[id]).filter(Boolean);
     const allFinished = matchRecords.length > 0 && matchRecords.every((m) => m.status === "finished");
     const winner = resolveMultiLegWinnerPublic(slot, matchRecords);
     if (!winner) {
       if (allFinished) {
-        addExtraLeg(season, slot, route.from.b, route.from.r, route.from.s);
+        await addExtraLeg(season, slot, route.from.b, route.from.r, route.from.s);
         updated = true;
       }
-      return;
+      continue;
     }
 
     const loser = winner === slot.team1 ? slot.team2 : slot.team1;
-    if (route.winnerTo !== "eliminated" && fillDestination(season, bracket, route.winnerTo, winner)) updated = true;
-    if (route.loserTo !== "eliminated" && fillDestination(season, bracket, route.loserTo, loser)) updated = true;
-  });
+    if (route.winnerTo !== "eliminated" && await fillDestination(season, bracket, route.winnerTo, winner)) updated = true;
+    if (route.loserTo !== "eliminated" && await fillDestination(season, bracket, route.loserTo, loser)) updated = true;
+  }
 
   const grandFinal = bracket.grandFinal.match;
   if (grandFinal?.team1 && grandFinal?.team2) {
@@ -386,7 +400,7 @@ export function advancePlayoffRound(seasonId: string): void {
       if (winner !== upperWinner) {
         if (!bracket.grandFinal.reset) {
           bracket.grandFinal.reset = { matchIds: [], team1: upperWinner, team2: winner };
-          bracket.grandFinal.reset.matchIds = generatePlayoffMatchIds(
+          bracket.grandFinal.reset.matchIds = await generatePlayoffMatchIds(
             season,
             bracket.grandFinal.reset,
             bracket.config.format.grandFinal,
@@ -397,12 +411,12 @@ export function advancePlayoffRound(seasonId: string): void {
           updated = true;
         }
       } else if (!bracket.grandFinal.reset) {
-        save(KEYS.seasons, { ...season, bracket });
-        finishPlayoff(seasonId, winner);
+        await saveSeason({ ...season, bracket });
+        await finishPlayoff(seasonId, winner);
         return;
       }
     } else if (allFinished) {
-      addExtraLeg(season, grandFinal, "grand_final", 0, 0);
+      await addExtraLeg(season, grandFinal, "grand_final", 0, 0);
       updated = true;
     }
   }
@@ -413,24 +427,26 @@ export function advancePlayoffRound(seasonId: string): void {
     const allResetFinished = matches.length > 0 && matches.every((m) => m.status === "finished");
     const winner = resolveMultiLegWinnerPublic(reset, matches);
     if (winner) {
-      save(KEYS.seasons, { ...season, bracket });
-      finishPlayoff(seasonId, winner);
+      await saveSeason({ ...season, bracket });
+      await finishPlayoff(seasonId, winner);
       return;
     } else if (allResetFinished) {
-      addExtraLeg(season, reset, "grand_final_reset", 0, 0);
+      await addExtraLeg(season, reset, "grand_final_reset", 0, 0);
       updated = true;
     }
   }
 
   if (updated) {
-    save(KEYS.seasons, { ...season, bracket });
+    await saveSeason({ ...season, bracket });
   }
 }
 
-export function finishPlayoff(seasonId: string, championTeamId: string): void {
-  const season = getById(KEYS.seasons, seasonId);
-  const league = getById(KEYS.leagues, season.leagueId);
-  save(KEYS.seasons, {
+export async function finishPlayoff(seasonId: string, championTeamId: string): Promise<void> {
+  const season = await getSeasonById(seasonId);
+  if (!season) return;
+  const league = await getLeagueById(season.leagueId);
+  if (!league) return;
+  await saveSeason({
     ...season,
     status: "finished",
     champion: championTeamId,
@@ -438,7 +454,7 @@ export function finishPlayoff(seasonId: string, championTeamId: string): void {
   });
 
   if (league.settings.continuousSeasons) {
-    const teams = getAll(KEYS.teams).filter((team) => team.leagueId === league.id && team.status === "active" && team.ownerId);
-    createSeasonWithSchedule(league, teams);
+    const teams = (await getTeamsByLeague(league.id)).filter((team) => team.status === "active" && team.ownerId);
+    await createSeasonWithSchedule(league, teams);
   }
 }

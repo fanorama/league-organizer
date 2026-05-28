@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Badge } from '../components/Badge';
 import { Shell } from '../components/Shell';
 import { byCreatedAtDesc } from '../lib/storage';
@@ -14,13 +14,23 @@ export function LeaguesPage() {
   const seasons = useSeasonStore((s) => s.seasons);
   const createLeague = useLeagueStore((s) => s.createLeague);
   const deleteLeague = useLeagueStore((s) => s.deleteLeague);
+  const fetchLeagues = useLeagueStore((s) => s.fetchLeagues);
+  const fetchTeams = useTeamStore((s) => s.fetchTeams);
+  const fetchSeasons = useSeasonStore((s) => s.fetchSeasons);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   const leagues = useMemo(() => [...allLeagues].sort(byCreatedAtDesc), [allLeagues]);
 
-  function handleCreate(event: React.FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    fetchLeagues();
+    fetchTeams();
+    fetchSeasons();
+  }, [fetchLeagues, fetchTeams, fetchSeasons]);
+
+  async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const name = String(data.get('name')).trim();
-    const league = createLeague({
+    const league = await createLeague({
       name,
       description: String(data.get('description')).trim(),
       createdAt: new Date().toISOString(),
@@ -32,47 +42,50 @@ export function LeaguesPage() {
     navigate(`/league/${league.id}`);
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (confirm('Delete this league and all related teams, seasons, and matches?')) {
-      deleteLeague(id);
+      await deleteLeague(id);
+      await Promise.all([fetchTeams(), fetchSeasons()]);
     }
   }
 
   return (
     <Shell active="leagues" title="Leagues">
-      <section className="card">
-        <h2>Create league</h2>
-        <form id="createLeague" className="form-grid" onSubmit={handleCreate}>
-          <div className="field">
-            <label>Name</label>
-            <input name="name" required placeholder="Weekend League" />
-          </div>
-          <div className="field">
-            <label>Meetings</label>
-            <select name="meetingsPerSeason" defaultValue="2">
-              <option value="1">Single round</option>
-              <option value="2">Home and away</option>
-            </select>
-          </div>
-          <div className="field">
-            <label>Continuous seasons</label>
-            <select name="continuousSeasons" defaultValue="false">
-              <option value="false">Off</option>
-              <option value="true">On</option>
-            </select>
-          </div>
-          <div className="field">
-            <label>Description</label>
-            <input name="description" placeholder="Optional" />
-          </div>
-          <div className="field">
-            <label>&nbsp;</label>
-            <button className="btn primary" type="submit">
-              Create
-            </button>
-          </div>
-        </form>
-      </section>
+      {isAdmin ? (
+        <section className="card">
+          <h2>Create league</h2>
+          <form id="createLeague" className="form-grid" onSubmit={handleCreate}>
+            <div className="field">
+              <label>Name</label>
+              <input name="name" required placeholder="Weekend League" />
+            </div>
+            <div className="field">
+              <label>Meetings</label>
+              <select name="meetingsPerSeason" defaultValue="2">
+                <option value="1">Single round</option>
+                <option value="2">Home and away</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Continuous seasons</label>
+              <select name="continuousSeasons" defaultValue="false">
+                <option value="false">Off</option>
+                <option value="true">On</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Description</label>
+              <input name="description" placeholder="Optional" />
+            </div>
+            <div className="field">
+              <label>&nbsp;</label>
+              <button className="btn primary" type="submit">
+                Create
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       <section style={{ marginTop: 18 }}>
         {leagues.length ? (
@@ -99,9 +112,11 @@ export function LeaguesPage() {
                     <button className="btn primary" type="button" onClick={() => navigate(`/league/${league.id}`)}>
                       Open
                     </button>
-                    <button className="btn danger" type="button" onClick={() => handleDelete(league.id)}>
-                      Delete
-                    </button>
+                    {isAdmin ? (
+                      <button className="btn danger" type="button" onClick={() => handleDelete(league.id)}>
+                        Delete
+                      </button>
+                    ) : null}
                   </div>
                 </article>
               );
@@ -114,3 +129,4 @@ export function LeaguesPage() {
     </Shell>
   );
 }
+import { useAuthStore } from '../store/useAuthStore';

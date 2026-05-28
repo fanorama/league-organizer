@@ -8,7 +8,7 @@ interface SpinWheelProps {
   leagueId: string;
   open: boolean;
   onClose: () => void;
-  onDone: () => void;
+  onDone: () => void | Promise<void>;
 }
 
 export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
@@ -38,22 +38,22 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
     window.setTimeout(() => setSelected(winner), 900);
   }
 
-  function handleAssign(event: React.FormEvent) {
+  async function handleAssign(event: React.FormEvent) {
     event.preventDefault();
     if (!selected) return;
     const trimmedNewPlayerName = newPlayerName.trim();
     if (selectedPlayerId === '__new__' && !trimmedNewPlayerName) return;
     if (selectedPlayerId !== '__new__' && !canAssignPlayerToLeague(selectedPlayerId, allTeams, leagueId)) return;
     const player = selectedPlayerId === '__new__'
-      ? addPlayer({ name: trimmedNewPlayerName, createdAt: new Date().toISOString() })
+      ? await addPlayer({ name: trimmedNewPlayerName, createdAt: new Date().toISOString() })
       : assignablePlayers.find((candidate) => candidate.id === selectedPlayerId);
     if (!player) return;
-    updateTeam({ ...selected, ownerId: player.id, owner: player.name, status: 'active' });
+    await updateTeam({ ...selected, ownerId: player.id, owner: player.name, status: 'active' });
     setSelected(null);
     setSelectedPlayerId('');
     setNewPlayerName('');
     setWheelLabel('Ready');
-    onDone();
+    await onDone();
   }
 
   if (!open) return null;

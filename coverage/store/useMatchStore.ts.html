@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>5/10</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">40% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>2/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">44.44% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>4/9</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -84,13 +84,33 @@
 <a name='L19'></a><a href='#L19'>19</a>
 <a name='L20'></a><a href='#L20'>20</a>
 <a name='L21'></a><a href='#L21'>21</a>
-<a name='L22'></a><a href='#L22'>22</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -98,33 +118,55 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { create } from 'zustand';
-import { KEYS, getAll, save } from '../lib/storage';
+import { getMatches, saveMatch, saveMatches } from '../lib/storage';
 import type { Match } from '../lib/types';
 &nbsp;
 interface MatchStore {
   matches: Match[];
-  updateMatch: (match: Match) =&gt; Match;
-  refresh: () =&gt; void;
+  fetchMatches: () =&gt; Promise&lt;void&gt;;
+  updateMatch: (match: Match) =&gt; Promise&lt;Match&gt;;
+  addMatches: (matches: (Omit&lt;Match, 'id'&gt; | Match)[]) =&gt; Promise&lt;Match[]&gt;;
+  refresh: () =&gt; Promise&lt;void&gt;;
 }
 &nbsp;
-export const <span class="cstat-no" title="statement not covered" >useMatchStore = <span class="fstat-no" title="function not covered" >create&lt;MatchStore&gt;((s</span>et) =&gt; (<span class="cstat-no" title="statement not covered" >{</span></span>
-  matches: getAll&lt;Match&gt;(KEYS.matches),
+export const useMatchStore = create&lt;MatchStore&gt;((set) =&gt; ({
+  matches: [],
 &nbsp;
-<span class="fstat-no" title="function not covered" >  updateMatch: (m</span>atch) =&gt; {
-    const <span class="cstat-no" title="statement not covered" >updated = save&lt;Match&gt;(KEYS.matches, match);</span>
-<span class="cstat-no" title="statement not covered" >    set({ matches: getAll&lt;Match&gt;(KEYS.matches) });</span>
-<span class="cstat-no" title="statement not covered" >    return updated;</span>
+  fetchMatches: <span class="fstat-no" title="function not covered" >async () =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    set({ matches: await getMatches() });</span>
   },
 &nbsp;
-<span class="fstat-no" title="function not covered" >  refresh: () =&gt; <span class="cstat-no" title="statement not covered" >s</span>et({ matches: getAll&lt;Match&gt;(KEYS.matches) }),</span>
+  updateMatch: async (match) =&gt; {
+    const updated = await saveMatch(match);
+    set({ matches: await getMatches() });
+    return updated;
+  },
+&nbsp;
+  addMatches: <span class="fstat-no" title="function not covered" >async (m</span>atches) =&gt; {
+    const saved = <span class="cstat-no" title="statement not covered" >await saveMatches(matches);</span>
+<span class="cstat-no" title="statement not covered" >    set({ matches: await getMatches() });</span>
+<span class="cstat-no" title="statement not covered" >    return saved;</span>
+  },
+&nbsp;
+  refresh: <span class="fstat-no" title="function not covered" >async () =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    set({ matches: await getMatches() });</span>
+  },
 }));
 &nbsp;</pre></td></tr></table></pre>
 
@@ -133,7 +175,7 @@ export const <span class="cstat-no" title="statement not covered" >useMatchStore
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-27T13:49:10.801Z
+                at 2026-05-27T20:50:49.790Z
             </div>
         <script src="../prettify.js"></script>
         <script>

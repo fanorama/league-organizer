@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Badge } from '../components/Badge';
 import { Shell } from '../components/Shell';
@@ -8,6 +8,7 @@ import { COMPETITIONS, fetchClubs } from '../lib/api';
 import { canAssignPlayerToLeague, getAssignablePlayersForLeague } from '../lib/playerAssignment';
 import { saveCache } from '../lib/storage';
 import type { ClubFromApi } from '../lib/types';
+import { useAuthStore } from '../store/useAuthStore';
 import { useLeagueStore } from '../store/useLeagueStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useTeamStore } from '../store/useTeamStore';
@@ -21,8 +22,12 @@ export function TeamsPage() {
   const removeTeam = useTeamStore((s) => s.removeTeam);
   const unassignTeam = useTeamStore((s) => s.unassignTeam);
   const refresh = useTeamStore((s) => s.refresh);
+  const fetchTeams = useTeamStore((s) => s.fetchTeams);
   const players = usePlayerStore((s) => s.players);
   const addPlayer = usePlayerStore((s) => s.addPlayer);
+  const fetchPlayers = usePlayerStore((s) => s.fetchPlayers);
+  const fetchLeagues = useLeagueStore((s) => s.fetchLeagues);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   const [assigningTeamId, setAssigningTeamId] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [newPlayerName, setNewPlayerName] = useState('');
@@ -34,6 +39,12 @@ export function TeamsPage() {
   const poolTeams = useMemo(() => teams.filter((team) => (team.status || 'pool') === 'pool'), [teams]);
   const assignablePlayers = useMemo(() => getAssignablePlayersForLeague(players, allTeams, currentLeagueId), [players, allTeams, currentLeagueId]);
 
+  useEffect(() => {
+    fetchLeagues();
+    fetchTeams();
+    fetchPlayers();
+  }, [fetchLeagues, fetchTeams, fetchPlayers]);
+
   if (!league || !leagueId) {
     return (
       <Shell active="leagues" title="Teams">
@@ -42,12 +53,12 @@ export function TeamsPage() {
     );
   }
 
-  function handleAddTeam(event: React.FormEvent<HTMLFormElement>) {
+  async function handleAddTeam(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const name = String(data.get('name')).trim();
     const shortName = String(data.get('shortName')).trim();
-    addTeam({
+    await addTeam({
       leagueId: currentLeagueId,
       name,
       shortName: (shortName || name.slice(0, 3)).toUpperCase(),
@@ -59,7 +70,7 @@ export function TeamsPage() {
     event.currentTarget.reset();
   }
 
-  function handleAssign(event: React.FormEvent<HTMLFormElement>, teamId: string) {
+  async function handleAssign(event: React.FormEvent<HTMLFormElement>, teamId: string) {
     event.preventDefault();
     const team = teams.find((candidate) => candidate.id === teamId);
     if (!team) return;
@@ -67,18 +78,18 @@ export function TeamsPage() {
     if (selectedPlayerId === '__new__' && !trimmedNewPlayerName) return;
     if (selectedPlayerId !== '__new__' && !canAssignPlayerToLeague(selectedPlayerId, allTeams, currentLeagueId)) return;
     const player = selectedPlayerId === '__new__'
-      ? addPlayer({ name: trimmedNewPlayerName, createdAt: new Date().toISOString() })
+      ? await addPlayer({ name: trimmedNewPlayerName, createdAt: new Date().toISOString() })
       : assignablePlayers.find((candidate) => candidate.id === selectedPlayerId);
     if (!player) return;
-    updateTeam({ ...team, ownerId: player.id, owner: player.name, status: 'active' });
+    await updateTeam({ ...team, ownerId: player.id, owner: player.name, status: 'active' });
     setAssigningTeamId(null);
     setSelectedPlayerId('');
     setNewPlayerName('');
   }
 
-  function handleRemove(teamId: string, name: string) {
+  async function handleRemove(teamId: string, name: string) {
     if (!confirm(`Remove "${name}" from league?`)) return;
-    removeTeam(teamId);
+    await removeTeam(teamId);
   }
 
   function handleOpenImport() {
@@ -95,17 +106,19 @@ export function TeamsPage() {
         <section className="panel">
           <div className="panel-head">
             <h2>Teams</h2>
-            <div className="actions">
-              <button id="wheelButton" className="btn" type="button" disabled={!poolTeams.length} onClick={() => setShowWheel(true)}>
-                Spin wheel
-              </button>
-              <button id="importButton" className="btn" type="button" onClick={handleOpenImport}>
-                Import clubs
-              </button>
-              <button className="btn" type="button" onClick={handleRefreshCache}>
-                Refresh cache
-              </button>
-            </div>
+            {isAdmin ? (
+              <div className="actions">
+                <button id="wheelButton" className="btn" type="button" disabled={!poolTeams.length} onClick={() => setShowWheel(true)}>
+                  Spin wheel
+                </button>
+                <button id="importButton" className="btn" type="button" onClick={handleOpenImport}>
+                  Import clubs
+                </button>
+                <button className="btn" type="button" onClick={handleRefreshCache}>
+                  Refresh cache
+                </button>
+              </div>
+            ) : null}
           </div>
           <div className="panel-body list">
             <section>
@@ -125,9 +138,11 @@ export function TeamsPage() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Badge status="active" />
-                        <button className="btn btn-xs danger" type="button" onClick={() => unassignTeam(team.id)}>
-                          Unassign
-                        </button>
+                        {isAdmin ? (
+                          <button className="btn btn-xs danger" type="button" onClick={() => unassignTeam(team.id)}>
+                            Unassign
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   ))}
@@ -154,20 +169,24 @@ export function TeamsPage() {
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <Badge status="pool" />
-                            <button
-                              className="btn btn-xs"
-                              type="button"
-                              onClick={() => {
-                                setAssigningTeamId(isAssigning ? null : team.id);
-                                setSelectedPlayerId('');
-                                setNewPlayerName('');
-                              }}
-                            >
-                              {isAssigning ? 'Cancel' : 'Assign'}
-                            </button>
-                            <button className="btn btn-xs danger" type="button" onClick={() => handleRemove(team.id, team.name)}>
-                              Remove
-                            </button>
+                            {isAdmin ? (
+                              <>
+                                <button
+                                  className="btn btn-xs"
+                                  type="button"
+                                  onClick={() => {
+                                    setAssigningTeamId(isAssigning ? null : team.id);
+                                    setSelectedPlayerId('');
+                                    setNewPlayerName('');
+                                  }}
+                                >
+                                  {isAssigning ? 'Cancel' : 'Assign'}
+                                </button>
+                                <button className="btn btn-xs danger" type="button" onClick={() => handleRemove(team.id, team.name)}>
+                                  Remove
+                                </button>
+                              </>
+                            ) : null}
                           </div>
                         </div>
                         {isAssigning ? (
@@ -213,9 +232,10 @@ export function TeamsPage() {
             </section>
           </div>
         </section>
-        <section className="card">
-          <h2>Add team</h2>
-          <form id="teamForm" className="list" onSubmit={handleAddTeam}>
+        {isAdmin ? (
+          <section className="card">
+            <h2>Add team</h2>
+            <form id="teamForm" className="list" onSubmit={handleAddTeam}>
             <div className="field">
               <label>Name</label>
               <input name="name" required placeholder="Arsenal" />
@@ -233,11 +253,12 @@ export function TeamsPage() {
             <button className="btn primary" type="submit">
               Add team
             </button>
-          </form>
-        </section>
+            </form>
+          </section>
+        ) : null}
       </div>
-      <SpinWheel leagueId={currentLeagueId} open={showWheel} onClose={() => setShowWheel(false)} onDone={refresh} />
-      {showImport ? <ImportModal leagueId={currentLeagueId} onClose={() => setShowImport(false)} /> : null}
+      {isAdmin ? <SpinWheel leagueId={currentLeagueId} open={showWheel} onClose={() => setShowWheel(false)} onDone={refresh} /> : null}
+      {isAdmin && showImport ? <ImportModal leagueId={currentLeagueId} onClose={() => setShowImport(false)} /> : null}
     </Shell>
   );
 }
@@ -278,11 +299,11 @@ function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => v
     setSelectedIds(next);
   }
 
-  function handleAddSelected() {
-    selectedIds.forEach((id) => {
+  async function handleAddSelected() {
+    await Promise.all(Array.from(selectedIds).map((id) => {
       const club = clubs.find((candidate) => candidate.id === id);
-      if (!club) return;
-      addTeam({
+      if (!club) return Promise.resolve(null);
+      return addTeam({
         leagueId,
         name: club.name,
         shortName: club.shortName,
@@ -291,7 +312,7 @@ function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => v
         status: 'pool',
         externalId: club.id,
       });
-    });
+    }));
     onClose();
   }
 

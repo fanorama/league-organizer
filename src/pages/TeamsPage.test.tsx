@@ -1,20 +1,31 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { getCache, KEYS, saveCache, setAll } from '../lib/storage';
+import { getCache, saveCache } from '../lib/storage';
 import type { League } from '../lib/types';
+import { useAuthStore } from '../store/useAuthStore';
 import { useLeagueStore } from '../store/useLeagueStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useTeamStore } from '../store/useTeamStore';
 import { TeamsPage } from './TeamsPage';
 
-const league: League = {
+const league = vi.hoisted<League>(() => ({
   id: 'league-1',
   name: 'Weekend League',
   createdAt: '2026-05-28T00:00:00.000Z',
   settings: { meetingsPerSeason: 1, continuousSeasons: false },
-};
+}));
+
+vi.mock('../lib/storage', async () => {
+  const actual = await vi.importActual<typeof import('../lib/storage')>('../lib/storage');
+  return {
+    ...actual,
+    getLeagues: vi.fn().mockResolvedValue([league]),
+    getTeams: vi.fn().mockResolvedValue([]),
+    getPlayers: vi.fn().mockResolvedValue([]),
+  };
+});
 
 function renderTeamsPage() {
   render(
@@ -29,12 +40,10 @@ function renderTeamsPage() {
 
 beforeEach(() => {
   localStorage.clear();
-  setAll(KEYS.leagues, [league]);
-  setAll(KEYS.teams, []);
-  setAll(KEYS.players, []);
-  useLeagueStore.getState().refresh();
-  useTeamStore.getState().refresh();
-  usePlayerStore.getState().refresh();
+  useAuthStore.setState({ session: {} as never, isAdmin: true });
+  useLeagueStore.setState({ leagues: [league] });
+  useTeamStore.setState({ teams: [] });
+  usePlayerStore.setState({ players: [] });
 });
 
 describe('TeamsPage', () => {
