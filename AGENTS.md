@@ -2,14 +2,15 @@
 
 ## Project Overview
 
-League Organizer adalah aplikasi web multi-liga berbasis browser. Dibangun dengan React + TypeScript + Vite. Semua data disimpan di `localStorage` — tidak ada server atau database.
+League Organizer adalah aplikasi web multi-liga. Dibangun dengan React + TypeScript + Vite. Data persisten disimpan di **Supabase** (PostgreSQL) — bukan `localStorage`. Autentikasi menggunakan Supabase Auth (email + password). Hanya user yang login (`isAdmin: true`) yang dianggap sebagai admin; pengunjung biasa tetap bisa melihat data secara read-only.
 
 **Teknologi utama:**
 - React 18 + TypeScript
 - Vite (dev server + build)
 - Zustand untuk state management
 - React Router v6 (HashRouter)
-- `localStorage` sebagai persistent storage
+- **Supabase** (`@supabase/supabase-js`) sebagai backend + auth
+- `localStorage` hanya untuk `clubs_cache` (cache API Football)
 - Vitest + jsdom + Testing Library untuk unit test
 - API Football (v3.football.api-sports.io) untuk import data klub
 
@@ -17,12 +18,22 @@ League Organizer adalah aplikasi web multi-liga berbasis browser. Dibangun denga
 
 ```bash
 npm install
+```
+
+Buat file `.env` di root project dengan variabel berikut (lihat `.env.example`):
+
+```
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon-public-key>
+```
+
+```bash
 npm run dev        # Dev server di http://localhost:5173
 npm run build      # Build produksi ke dist/
 npm run preview    # Preview hasil build
 ```
 
-Tidak ada `.env` file — API key disimpan langsung di `localStorage` via halaman Settings.
+> **Penting:** Tanpa `.env` yang valid, app akan crash karena Supabase client tidak bisa diinisialisasi.
 
 ## Testing
 
@@ -33,14 +44,23 @@ npm run test:ui    # Buka Vitest UI di browser
 npm run coverage   # Coverage report ke ./coverage/
 ```
 
-File test berada di samping source-nya (`*.test.ts`). Test environment menggunakan jsdom. Coverage hanya dihitung untuk `src/lib/**` dan `src/store/**`.
+File test berada di samping source-nya (`*.test.ts` / `*.test.tsx`). Test environment menggunakan jsdom. Coverage hanya dihitung untuk `src/lib/**` dan `src/store/**`.
+
+**Supabase di-mock sepenuhnya di test.** Setup global ada di `src/test/setup.ts` — ia mock `@supabase/supabase-js` dan juga menyediakan in-memory `localStorage` shim (dibutuhkan Node.js 22+). Saat menambah test baru yang memanggil storage functions, set return value mock sesuai kebutuhan:
+
+```ts
+import { vi } from 'vitest';
+// supabaseQuery.order sudah auto-mock di setup.ts
+// Override per-test jika butuh data spesifik:
+vi.mocked(supabaseQuery.order).mockResolvedValueOnce({ data: [...], error: null });
+```
 
 ## Struktur Proyek
 
 ```
 src/
   main.tsx              # Entry point React
-  App.tsx               # Router + route definitions
+  App.tsx               # Router + inisialisasi Supabase auth session
   pages/
     LeaguesPage.tsx     # Daftar liga
     LeaguePage.tsx      # Detail liga + manajemen musim
@@ -48,9 +68,9 @@ src/
     SeasonPage.tsx      # Jadwal pertandingan + klasemen + playoff
     PlayersPage.tsx     # Leaderboard global semua player
     PlayerPage.tsx      # Profil player: stats per liga + H2H
-    SettingsPage.tsx    # API key dan cache manajemen
+    LoginPage.tsx       # Halaman login admin (Supabase Auth)
   components/
-    Shell.tsx           # Layout wrapper + sidebar navigasi
+    Shell.tsx           # Layout wrapper + navigasi + tombol Login/Logout
     Badge.tsx           # Badge komponen
     TeamBadge.tsx       # Badge tim dengan logo
     SpinWheel.tsx       # Spin wheel modal untuk assign owner
@@ -60,16 +80,18 @@ src/
     useSeasonStore.ts   # Zustand store untuk musim
     useMatchStore.ts    # Zustand store untuk pertandingan
     usePlayerStore.ts   # Zustand store untuk player global
+    useAuthStore.ts     # Zustand store untuk auth session (isAdmin)
   lib/
     types.ts            # TypeScript interfaces semua entitas
-    storage.ts          # CRUD localStorage, cascade delete, helper sort
+    storage.ts          # CRUD Supabase + mapper camelCase↔snake_case
+    supabase.ts         # Inisialisasi Supabase client (singleton)
     api.ts              # fetchClubs() dari API Football, cache 7 hari
     schedule.ts         # generateRoundRobin(), playoff bracket logic
     standings.ts        # calculateStandings() — Pts, GD, GF tiebreaker
     playerStats.ts      # calculatePlayerStats(), calculateHeadToHead()
     playerAssignment.ts # Helper assign player ke tim di liga
   test/
-    setup.ts            # Vitest global setup
+    setup.ts            # Vitest global setup + mock Supabase + localStorage shim
 styles/
   main.css              # Design system dan komponen styles
 ```
@@ -81,32 +103,52 @@ Menggunakan `HashRouter` — semua route berbasis hash (`#/`):
 | Route | Halaman |
 |-------|---------|
 | `#/` | Daftar liga |
+| `#/login` | Halaman login admin |
 | `#/league/:id` | Detail liga |
 | `#/league/:id/teams` | Manajemen tim |
 | `#/league/:id/season/:seasonId` | Jadwal + klasemen + playoff |
 | `#/players` | Leaderboard global player |
 | `#/player/:id` | Profil player (stats + H2H) |
-| `#/settings` | Settings API key |
 
-## Data Model (localStorage)
+## Data Model (Supabase Tables)
 
-| Key | Tipe | Keterangan |
-|-----|------|------------|
-| `leagues` | `League[]` | Liga dengan `settings.meetingsPerSeason`, `settings.continuousSeasons`, `settings.playoff` |
-| `players` | `Player[]` | Entitas player global — `id`, `name`, `createdAt` |
-| `teams` | `Team[]` | `status: "pool" \| "active"`, `leagueId`, `ownerId` (→ `Player.id`), `externalId` (dari API) |
-| `seasons` | `Season[]` | `status: "setup" \| "active" \| "finished" \| "playoff_setup" \| "playoff_active"`, `ownerSnapshots` |
-| `matches` | `Match[]` | `matchday`, `homeScore`, `awayScore`, `status`, `matchType: "league" \| "playoff"` |
-| `clubs_cache` | `Record<string, CacheEntry>` | Cache API Football, TTL 7 hari |
-| `app_settings` | `{ apiKey: string }` | API key Football API |
+| Tabel | Keterangan |
+|-------|------------|
+| `leagues` | Liga — `id`, `name`, `description`, `settings` (JSONB), `created_at` |
+| `players` | Entitas player global — `id`, `name`, `created_at` |
+| `teams` | `league_id`, `status: "pool" \| "active"`, `owner_id` (→ `players.id`), `external_id` |
+| `seasons` | `league_id`, `number`, `status`, `team_ids` (array), `owner_snapshots` (JSONB), `champion_id`, `bracket` (JSONB) |
+| `matches` | `season_id`, `matchday`, `home_team_id`, `away_team_id`, `home_score`, `away_score`, `status`, `match_type` |
 
-Semua entitas menggunakan `crypto.randomUUID()` untuk ID via `createId()` di `storage.ts`.
+**Nama kolom di DB menggunakan `snake_case`.** Konversi ke/dari `camelCase` dilakukan oleh mapper di `storage.ts` (misalnya `leagueId` ↔ `league_id`).
+
+`clubs_cache` dan `app_settings` (API key) **masih di `localStorage`** — tidak ada di Supabase.
+
+Semua entitas menggunakan `crypto.randomUUID()` via `createId()` di `storage.ts`.
 
 ### Catatan Penting: Player Ownership
 
 - `Team.ownerId` menunjuk ke `Player.id` global (field aktif)
-- `Team.owner` (string nama) sudah **deprecated** — hanya dipertahankan sebagai migration fallback
+- `Team.owner` (string nama) sudah **deprecated** — hanya fallback migrasi
 - `Season.ownerSnapshots` menyimpan snapshot `{ playerId, playerName }` per `teamId` saat musim dibuat — ini yang digunakan untuk kalkulasi statistik player
+
+## Autentikasi
+
+- Supabase Auth email + password
+- `App.tsx` menginisialisasi session saat mount dan subscribe ke `onAuthStateChange`
+- `useAuthStore` menyimpan `session` dan `isAdmin: boolean` (true jika session !== null)
+- `Shell.tsx` menampilkan tombol **Logout** jika `isAdmin`, atau link **Login** jika tidak
+- Tidak ada route guard — halaman tetap dapat diakses tanpa login, tapi operasi write ke Supabase membutuhkan auth sesuai RLS policy yang dikonfigurasi di Supabase
+
+## Storage Layer (`src/lib/storage.ts`)
+
+Semua CRUD ke Supabase ada di sini. Selalu gunakan fungsi dari file ini — jangan impor `supabase` dari `supabase.ts` langsung di komponen atau store.
+
+Fungsi utama per entitas mengikuti pola: `getLeagues()`, `getLeagueById(id)`, `saveLeague(league)`, `deleteLeague(id)`.
+
+Untuk entitas dengan relasi banyak (match, season), ada fungsi filter: `getMatchesBySeason(seasonId)`, `getSeasonsByLeague(leagueId)`, dll.
+
+**Cascade delete** — Supabase menggunakan `ON DELETE CASCADE` di level DB untuk relasi foreign key. Tidak ada manual cascade di application layer.
 
 ## Alur Utama Aplikasi
 
@@ -121,10 +163,10 @@ Semua entitas menggunakan `crypto.randomUUID()` untuk ID via `createId()` di `st
 
 ## Konvensi Kode
 
-- **Storage layer**: gunakan fungsi dari `src/lib/storage.ts` (`save`, `getAll`, `getById`, `remove`) — jangan langsung akses `localStorage`
+- **Storage layer**: gunakan fungsi dari `src/lib/storage.ts` — jangan akses `supabase` client langsung dari komponen atau store
 - **State management**: setiap entitas punya Zustand store di `src/store/`. Store hanya membungkus storage functions + trigger re-render
 - **Types**: semua interface di `src/lib/types.ts` — tidak ada type inline di komponen
-- **Cascade delete**: hapus liga via `cascadeDeleteLeague()` dari `storage.ts` — menghapus semua tim, musim, dan pertandingan terkait
+- **Mapper DB**: setiap entitas punya pasangan fungsi `dbToX()` dan `xToDb()` di `storage.ts` untuk konversi snake_case ↔ camelCase
 
 ## Menambah Fitur Baru
 
@@ -135,26 +177,26 @@ Saat menambah halaman baru:
 
 Saat menambah tipe data baru:
 1. Tambahkan interface ke `src/lib/types.ts`
-2. Tambahkan key ke `KEYS` di `src/lib/storage.ts`
-3. Buat Zustand store baru di `src/store/` jika diperlukan
-4. Buat file `*.test.ts` di samping file lib/store baru tersebut
-5. Tambahkan `cascadeDelete` di `storage.ts` jika ada relasi parent-child
+2. Buat tabel di Supabase (nama kolom `snake_case`)
+3. Tambahkan mapper `dbToX()` + `xToDb()` dan fungsi CRUD ke `src/lib/storage.ts`
+4. Buat Zustand store baru di `src/store/` jika diperlukan
+5. Buat file `*.test.ts` di samping file lib/store baru tersebut
 
 ## API Football
 
 - Base URL: `https://v3.football.api-sports.io`
 - Header: `x-apisports-key: <API_KEY>`
-- API key disimpan di `localStorage` via SettingsPage
-- Cache per `competitionId:season` — TTL 7 hari
-- Jika tidak ada API key, throw error yang diarahkan ke Settings
+- API key disimpan di `localStorage` via SettingsPage (masih menggunakan localStorage, bukan Supabase)
+- Cache per `competitionId:season` — TTL 7 hari, disimpan di `localStorage` key `clubs_cache`
 - Kompetisi yang didukung: Premier League (39), Serie A (135), La Liga (140), Bundesliga (78), Ligue 1 (61) — season 2024
 
 ## Hal yang Perlu Diperhatikan
 
-- **Tidak ada autentikasi** — semua data lokal per browser
+- **`.env` wajib ada** — `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` harus diset, lihat `.env.example`
 - **Verifikasi UI dengan browser** — unit test hanya untuk `src/lib/**` dan `src/store/**`, bukan komponen React. Untuk perubahan UI gunakan `npm run dev`
+- **Mock Supabase di test** — `src/test/setup.ts` mock seluruh `@supabase/supabase-js`. Jangan buat koneksi Supabase nyata di test
+- **Clubs cache masih di localStorage** — satu-satunya data yang tidak di Supabase adalah `clubs_cache` dan `app_settings` (API key)
 - **Spin wheel hanya untuk pool teams** — tim dengan `status: "active"` sudah tidak masuk wheel
 - **`matchday: 99`** digunakan sebagai penanda pertandingan yang ditunda (delayed)
-- **Cascade delete**: selalu gunakan `cascadeDeleteLeague()` — jangan hapus liga secara manual
-- **`@ts-nocheck`** di `schedule.ts` — file ini kompleks, perlu perhatian ekstra saat modifikasi
 - **`ownerSnapshots`** digunakan untuk kalkulasi stats player — jangan skip ini saat membuat musim baru
+- **`@ts-nocheck`** di `schedule.ts` — file ini kompleks, perlu perhatian ekstra saat modifikasi
