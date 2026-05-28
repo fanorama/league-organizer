@@ -216,6 +216,7 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 20px;
+  align-items: start;
 }
 
 /* ─── CARDS ─── */
@@ -252,6 +253,7 @@ textarea {
 }
 
 .panel {
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -266,7 +268,12 @@ textarea {
 }
 
 .panel-body {
+  min-width: 0;
   padding: 18px;
+}
+
+.panel-body > section {
+  min-width: 0;
 }
 
 /* ─── TYPOGRAPHY ─── */
@@ -476,10 +483,12 @@ textarea {
 .list {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .list-row {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -493,6 +502,32 @@ textarea {
 .list-row:hover {
   background: var(--panel-2);
   border-color: var(--border-2);
+}
+
+.participant-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pool-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.pool-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pool-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 
 /* ─── TABLE ─── */
@@ -1413,6 +1448,116 @@ tbody tr:first-child td:first-child {
   color: var(--text-2);
 }
 
+/* ─── HAMBURGER + MOBILE NAV ─── */
+
+.hamburger-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 38px;
+  height: 38px;
+  padding: 8px;
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: background 0.15s;
+}
+
+.hamburger-btn:hover {
+  background: var(--panel-2);
+}
+
+.hamburger-btn span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--text-2);
+  border-radius: 2px;
+  transition: transform 0.22s ease, opacity 0.22s ease, width 0.22s ease;
+  transform-origin: center;
+}
+
+.hamburger-btn.is-open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger-btn.is-open span:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+.hamburger-btn.is-open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+@keyframes mobile-nav-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobile-nav {
+  display: none;
+  position: sticky;
+  top: var(--header-height);
+  z-index: 99;
+  width: 100%;
+  background: #070a10;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 0 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: mobile-nav-in 0.2s ease both;
+}
+
+.mobile-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 20px;
+  background: none;
+  border: none;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.mobile-nav-link:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.mobile-nav-link.active {
+  color: var(--primary);
+}
+
+.mobile-nav-link.active svg {
+  color: var(--primary);
+}
+
+
+.mobile-nav-logout {
+  color: var(--accent);
+}
+
+.mobile-nav-logout:hover {
+  background: var(--danger-bg);
+  color: #ff8a9e;
+}
+
 /* ─── RESPONSIVE ─── */
 
 @media (max-width: 860px) {
@@ -1436,9 +1581,20 @@ tbody tr:first-child td:first-child {
     font-size: 15px;
   }
 
-  .top-nav a {
-    padding: 0 12px;
-    font-size: 10px;
+  .top-nav {
+    display: none;
+  }
+
+  .header-logout {
+    display: none;
+  }
+
+  .hamburger-btn {
+    display: flex;
+  }
+
+  .mobile-nav {
+    display: block;
   }
 
   .topbar,
@@ -1453,6 +1609,132 @@ tbody tr:first-child td:first-child {
 
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .participant-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px 10px;
+    align-items: start;
+    padding: 14px;
+  }
+
+  .participant-row .team-line {
+    align-items: center;
+  }
+
+  .participant-row .team-line > div {
+    min-width: 0;
+  }
+
+  .participant-actions {
+    display: contents;
+  }
+
+  .participant-actions .badge {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    margin-top: 6px;
+  }
+
+  .participant-actions .btn {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    min-height: 28px;
+    justify-content: center;
+  }
+
+  .pool-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px 10px;
+    align-items: start;
+    padding: 14px;
+  }
+
+  .pool-row-main {
+    display: contents;
+  }
+
+  .pool-row-main .team-line {
+    grid-column: 1;
+    grid-row: 1;
+    align-items: center;
+  }
+
+  .pool-row-main .team-line > div {
+    min-width: 0;
+  }
+
+  .pool-actions {
+    display: contents;
+  }
+
+  .pool-actions .badge {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    margin-top: 6px;
+  }
+
+  .pool-actions .btn {
+    min-height: 28px;
+    justify-content: center;
+  }
+
+  .pool-actions .btn:not(.danger) {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  .pool-actions .btn.danger {
+    grid-column: 2;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  .pool-actions .btn:not(.danger):last-child {
+    grid-column: 1 / -1;
+  }
+
+  .pool-row:has(.pool-actions .btn.danger) {
+    grid-template-columns: minmax(0, 1fr) minmax(92px, auto);
+  }
+
+  .pool-row:has(.pool-actions .btn.danger) .pool-actions .btn:not(.danger) {
+    min-width: 92px;
+  }
+
+  .pool-row:has(.pool-actions .btn.danger) .pool-actions .btn.danger {
+    min-width: 92px;
+  }
+
+  .pool-row:has(.pool-actions .btn.danger) .pool-actions .badge {
+    width: fit-content;
+  }
+
+  .pool-row:not(:has(.pool-actions .btn.danger)) .pool-actions .badge {
+    grid-column: 2;
+  }
+
+  .pool-row:not(:has(.pool-actions .btn.danger)) .pool-actions .btn {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  .pool-row .list {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .pool-actions {
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
   }
 
   /* ─── MATCH CARD MOBILE ─── */

@@ -126,7 +126,7 @@ export function TeamsPage() {
               {activeTeams.length ? (
                 <div className="list">
                   {activeTeams.map((team) => (
-                    <div className="list-row" key={team.id}>
+                    <div className="list-row participant-row" key={team.id}>
                       <div className="team-line">
                         <TeamBadge team={team} />
                         <div>
@@ -136,7 +136,7 @@ export function TeamsPage() {
                           </div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className="participant-actions">
                         <Badge status="active" />
                         {isAdmin ? (
                           <button className="btn btn-xs danger" type="button" onClick={() => unassignTeam(team.id)}>
@@ -158,8 +158,8 @@ export function TeamsPage() {
                   {poolTeams.map((team) => {
                     const isAssigning = assigningTeamId === team.id;
                     return (
-                      <div className="list-row" style={{ flexDirection: 'column', alignItems: 'stretch' }} key={team.id}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div className="list-row pool-row" key={team.id}>
+                        <div className="pool-row-main">
                           <div className="team-line">
                             <TeamBadge team={team} />
                             <div>
@@ -167,7 +167,7 @@ export function TeamsPage() {
                               <div className="muted">{team.shortName}</div>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div className="pool-actions">
                             <Badge status="pool" />
                             {isAdmin ? (
                               <>

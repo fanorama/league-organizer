@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '../components/Badge';
 import { Shell } from '../components/Shell';
 import { TeamBadge } from '../components/TeamBadge';
@@ -58,6 +58,10 @@ export function LeaguePage() {
     fetchPlayers();
     fetchMatches();
   }, [fetchLeagues, fetchSeasons, fetchTeams, fetchPlayers, fetchMatches]);
+
+  const [showPlayoffConfig, setShowPlayoffConfig] = useState(
+    league?.settings?.playoff?.enabled ?? false
+  );
 
   if (!league) {
     return (
@@ -205,12 +209,16 @@ export function LeaguePage() {
               </div>
               <div className="field">
                 <label>Playoff</label>
-                <select name="playoffEnabled" defaultValue={String(playoffSettings.enabled)}>
+                <select
+                  name="playoffEnabled"
+                  defaultValue={String(playoffSettings.enabled)}
+                  onChange={(e) => setShowPlayoffConfig(e.target.value === 'true')}
+                >
                   <option value="false">Off</option>
                   <option value="true">On</option>
                 </select>
               </div>
-              <div id="playoffConfig">
+              <div id="playoffConfig" hidden={!showPlayoffConfig}>
                 <div className="field">
                   <label>Teams in playoff</label>
                   <select name="playoffTeamsCount" defaultValue={playoffSettings.teamsCount}>
