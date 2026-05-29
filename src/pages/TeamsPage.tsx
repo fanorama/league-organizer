@@ -267,7 +267,7 @@ export function TeamsPage() {
 function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => void }) {
   const allTeams = useTeamStore((s) => s.teams);
   const addTeam = useTeamStore((s) => s.addTeam);
-  const [competitionId, setCompetitionId] = useState(COMPETITIONS[0].id);
+  const [competitionId, setCompetitionId] = useState(COMPETITIONS[0].code);
   const [clubs, setClubs] = useState<ClubFromApi[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -317,7 +317,7 @@ function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => v
 
   return (
     <div className="modal open" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className="modal-card">
+      <div className="modal-card import-modal-card">
         <div className="modal-head">
           <h2>Import clubs</h2>
           <button className="btn" type="button" onClick={onClose}>
@@ -328,14 +328,14 @@ function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => v
           <div className="tabs" role="tablist" aria-label="Kompetisi">
             {COMPETITIONS.map((item) => (
               <button
-                key={item.id}
+                key={item.code}
                 type="button"
                 role="tab"
-                aria-selected={competitionId === item.id}
-                className={competitionId === item.id ? 'tab active' : 'tab'}
+                aria-selected={competitionId === item.code}
+                className={competitionId === item.code ? 'tab active' : 'tab'}
                 onClick={() => {
-                  setCompetitionId(item.id);
-                  loadCompetition(item.id);
+                  setCompetitionId(item.code);
+                  loadCompetition(item.code);
                 }}
               >
                 {item.name}

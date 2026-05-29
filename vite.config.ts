@@ -24,10 +24,12 @@ export default defineConfig({
           }
 
           const url = new URL(req.url, 'http://localhost');
-          const league = url.searchParams.get('league');
+          const competition = url.searchParams.get('competition');
           const season = url.searchParams.get('season');
-          const upstream = await fetch(`https://v3.football.api-sports.io/teams?league=${league}&season=${season}`, {
-            headers: { 'x-apisports-key': apiKey },
+          let upstreamUrl = `https://api.football-data.org/v4/competitions/${competition}/teams`;
+          if (season) upstreamUrl += `?season=${season}`;
+          const upstream = await fetch(upstreamUrl, {
+            headers: { 'X-Auth-Token': apiKey },
           });
           res.statusCode = upstream.status;
           res.end(await upstream.text());

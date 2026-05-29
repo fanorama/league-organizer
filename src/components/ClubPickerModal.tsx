@@ -14,8 +14,8 @@ interface ClubPickerModalProps {
 export function ClubPickerModal({
   player1Name,
   player2Name,
-  initialP1CompetitionId = COMPETITIONS[0].id,
-  initialP2CompetitionId = COMPETITIONS[0].id,
+  initialP1CompetitionId = COMPETITIONS[0].code,
+  initialP2CompetitionId = COMPETITIONS[0].code,
   onConfirm,
   onClose,
 }: ClubPickerModalProps) {
@@ -149,7 +149,7 @@ function ClubGrid({
         onChange={(e) => onCompetitionChange(e.target.value)}
       >
         {COMPETITIONS.map((competition) => (
-          <option key={competition.id} value={competition.id}>
+          <option key={competition.code} value={competition.code}>
             {competition.name}
           </option>
         ))}
