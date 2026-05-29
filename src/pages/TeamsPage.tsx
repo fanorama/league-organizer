@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Badge } from '../components/Badge';
+import { ImportClubGrid } from '../components/ImportClubGrid';
 import { Shell } from '../components/Shell';
 import { SpinWheel } from '../components/SpinWheel';
 import { TeamBadge } from '../components/TeamBadge';
@@ -267,16 +268,14 @@ function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => v
   const allTeams = useTeamStore((s) => s.teams);
   const addTeam = useTeamStore((s) => s.addTeam);
   const [competitionId, setCompetitionId] = useState(COMPETITIONS[0].id);
-  const [search, setSearch] = useState('');
   const [clubs, setClubs] = useState<ClubFromApi[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const teams = useMemo(() => allTeams.filter((team) => team.leagueId === leagueId), [allTeams, leagueId]);
-  const poolIds = useMemo(() => new Set(teams.filter((team) => team.externalId).map((team) => team.externalId)), [teams]);
-  const filtered = useMemo(() => clubs.filter((club) => club.name.toLowerCase().includes(search.toLowerCase())), [clubs, search]);
-  const importable = useMemo(() => filtered.filter((club) => !poolIds.has(club.id)), [filtered, poolIds]);
+  const poolIds = useMemo(() => new Set(teams.map((team) => team.externalId).filter((id): id is string => Boolean(id))), [teams]);
+  const importable = useMemo(() => clubs.filter((club) => !poolIds.has(club.id)), [clubs, poolIds]);
 
   async function loadCompetition(nextCompetitionId = competitionId) {
     setLoading(true);
@@ -326,28 +325,22 @@ function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => v
           </button>
         </div>
         <div className="modal-body list">
-          <div className="form-grid">
-            <div className="field">
-              <label>Competition</label>
-              <select
-                id="competition"
-                value={competitionId}
-                onChange={(event) => {
-                  setCompetitionId(event.target.value);
-                  loadCompetition(event.target.value);
+          <div className="tabs" role="tablist" aria-label="Kompetisi">
+            {COMPETITIONS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={competitionId === item.id}
+                className={competitionId === item.id ? 'tab active' : 'tab'}
+                onClick={() => {
+                  setCompetitionId(item.id);
+                  loadCompetition(item.id);
                 }}
               >
-                {COMPETITIONS.map((item) => (
-                  <option value={item.id} key={item.id}>
-                    {item.name} - {item.country}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>Search</label>
-              <input id="clubSearch" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Club name" />
-            </div>
+                {item.name}
+              </button>
+            ))}
           </div>
           <div id="clubActions">
             {clubs.length ? (
@@ -360,38 +353,16 @@ function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => v
               </button>
             )}
           </div>
-          <div id="clubList" className="list" style={{ paddingBottom: selectedIds.size > 0 ? 56 : undefined }}>
-            {loading ? <div className="empty">Loading clubs...</div> : null}
-            {error ? (
-              <div className="empty">
-                Failed to load: {error}
-                <button className="btn" type="button" onClick={() => loadCompetition()}>
-                  Retry
-                </button>
-              </div>
-            ) : null}
-            {!loading && !error && filtered.length === 0 && clubs.length > 0 ? <div className="empty">No clubs match your search.</div> : null}
-            {!loading && !error && filtered.length > 0 && importable.length === 0 ? <div className="empty">All clubs already in your pool.</div> : null}
-            {!loading && !error ? filtered.map((club) => {
-              const inPool = poolIds.has(club.id);
-              const checked = selectedIds.has(club.id);
-              return (
-                <label className={`list-row${inPool ? ' muted' : ''}`} style={inPool ? { opacity: 0.45, pointerEvents: 'none' } : undefined} key={club.id}>
-                  <input style={{ width: 'auto' }} type="checkbox" name="club" value={club.id} checked={checked} disabled={inPool} onChange={(event) => toggleSelected(club.id, event.target.checked)} />
-                  <span className="team-line">
-                    {club.logo ? (
-                      <span className="team-badge">
-                        <img src={club.logo} alt="" />
-                      </span>
-                    ) : (
-                      <span className="team-badge">{club.shortName}</span>
-                    )}
-                    <span>{club.name}</span>
-                  </span>
-                  {inPool ? <span className="badge badge-pool">In pool</span> : null}
-                </label>
-              );
-            }) : null}
+          <div id="clubList" style={{ paddingBottom: selectedIds.size > 0 ? 56 : undefined }}>
+            <ImportClubGrid
+              clubs={clubs}
+              selectedIds={selectedIds}
+              poolIds={poolIds}
+              loading={loading}
+              error={error}
+              onToggle={(id) => toggleSelected(id, !selectedIds.has(id))}
+              onRetry={() => loadCompetition()}
+            />
           </div>
           <div id="importFooter" className="import-footer" style={{ display: selectedIds.size > 0 ? 'block' : 'none', position: 'sticky', bottom: 0, background: 'var(--panel)', paddingTop: 12 }}>
             <button id="addSelected" className="btn primary" type="button" onClick={handleAddSelected}>
