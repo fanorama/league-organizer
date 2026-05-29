@@ -708,6 +708,19 @@ tbody tr:first-child td:first-child {
   box-shadow: var(--shadow);
 }
 
+.import-modal-card {
+  width: min(1040px, 100%);
+}
+
+.import-modal-card .tabs {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.import-modal-card .tab {
+  flex: 0 0 auto;
+}
+
 .modal-head {
   display: flex;
   align-items: center;

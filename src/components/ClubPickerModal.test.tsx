@@ -41,7 +41,7 @@ describe('ClubPickerModal', () => {
     await user.click(screen.getByRole('button', { name: 'Konfirmasi' }));
 
     await waitFor(() => {
-      expect(onConfirm).toHaveBeenCalledWith(clubs[0], clubs[1], '39', '39');
+      expect(onConfirm).toHaveBeenCalledWith(clubs[0], clubs[1], 'PL', 'PL');
     });
   });
 
@@ -51,7 +51,7 @@ describe('ClubPickerModal', () => {
       { id: 'mil', name: 'Milan', shortName: 'MIL', logo: '/milan.png' },
     ];
     vi.mocked(fetchClubs).mockImplementation(async (competitionId) => {
-      return competitionId === '135' ? serieAClubs : clubs;
+      return competitionId === 'SA' ? serieAClubs : clubs;
     });
     const onConfirm = vi.fn();
     const user = userEvent.setup();
@@ -81,7 +81,7 @@ describe('ClubPickerModal', () => {
     await user.click(screen.getByRole('button', { name: 'Pilih Inter untuk Bima' }));
     await user.click(screen.getByRole('button', { name: 'Konfirmasi' }));
 
-    expect(onConfirm).toHaveBeenCalledWith(clubs[0], serieAClubs[0], '39', '135');
+    expect(onConfirm).toHaveBeenCalledWith(clubs[0], serieAClubs[0], 'PL', 'SA');
   });
 
   it('grid pemain tetap pada kompetisi terbaru ketika fetch sebelumnya selesai lebih lambat', async () => {
@@ -100,7 +100,7 @@ describe('ClubPickerModal', () => {
       <ClubPickerModal
         player1Name="Adit"
         player2Name="Bima"
-        initialP2CompetitionId="135"
+        initialP2CompetitionId="SA"
         onConfirm={vi.fn()}
         onClose={vi.fn()}
       />,
