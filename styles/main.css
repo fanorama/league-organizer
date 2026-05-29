@@ -2117,6 +2117,12 @@ tbody tr:first-child td:first-child {
   box-shadow: 0 0 0 2px rgba(240, 180, 41, 0.15);
 }
 
+.club-badge-button.club-in-pool {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
 .club-badge-button img,
 .club-preview-slot img {
   max-width: 48px;
