@@ -2248,3 +2248,57 @@ tbody tr:first-child td:first-child {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* === Standings image modal === */
+.standings-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 16px 0;
+}
+.std-image-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+.std-image-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: min(420px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+.std-image-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e8edf3;
+}
+.std-image-head h3 { margin: 0; font-size: 16px; }
+.std-image-preview {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+}
+.std-image-preview img {
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  border-radius: 8px;
+}
+.std-image-state { color: #475569; font-size: 14px; text-align: center; }
+.std-image-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 0 16px 16px;
+}
