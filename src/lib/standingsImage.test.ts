@@ -24,6 +24,18 @@ describe('teamLogoUrl', () => {
   it('jatuh ke logo bila badge bukan URL', () => {
     expect(teamLogoUrl(makeTeam({ badge: 'ARS', logo: 'https://x/y.png' }))).toBe('https://x/y.png');
   });
+  it('menormalisasi logo API-Sports dari externalId agar tidak memakai URL logo yang salah', () => {
+    expect(teamLogoUrl(makeTeam({
+      externalId: '541',
+      badge: 'https://media.api-sports.io/football/teams/42.png',
+    }))).toBe('https://media.api-sports.io/football/teams/541.png');
+  });
+  it('tidak menormalisasi host lain dari externalId', () => {
+    expect(teamLogoUrl(makeTeam({
+      externalId: '57',
+      badge: 'https://crests.football-data.org/57.png',
+    }))).toBe('https://crests.football-data.org/57.png');
+  });
   it('mengembalikan null bila tak ada URL', () => {
     expect(teamLogoUrl(makeTeam({ badge: 'ARS' }))).toBeNull();
   });

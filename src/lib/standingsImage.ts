@@ -15,7 +15,16 @@ const LOGO_PALETTE = [
 
 export function teamLogoUrl(team: Team): string | null {
   for (const value of [team.badge, team.logo]) {
-    if (value && /^https?:\/\//.test(value)) return value;
+    if (!value || !/^https?:\/\//.test(value)) continue;
+    try {
+      const parsed = new URL(value);
+      if (parsed.hostname === 'media.api-sports.io' && team.externalId) {
+        return `https://media.api-sports.io/football/teams/${encodeURIComponent(team.externalId)}.png`;
+      }
+    } catch {
+      return value;
+    }
+    return value;
   }
   return null;
 }
