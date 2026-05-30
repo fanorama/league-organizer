@@ -277,6 +277,11 @@ function TeamSummary({ team, season, side = 'home' }: { team?: Team; season: Sea
 
 function StandingsTab({ season, teams, matches, league, isAdmin }: { season: Season; teams: Team[]; matches: Match[]; league: League; isAdmin: boolean }) {
   const rows = calculateStandingsFromData(season, teams, matches);
+  const ownerNames = Object.fromEntries(
+    rows
+      .map((row) => [row.team.id, getSeasonOwnerName(season, row.team.id)] as const)
+      .filter(([, ownerName]) => ownerName !== 'unassigned'),
+  );
   const [showImage, setShowImage] = useState(false);
 
   return (
@@ -338,6 +343,7 @@ function StandingsTab({ season, teams, matches, league, isAdmin }: { season: Sea
           seasonNumber={season.number}
           matchday={latestMatchday(matches, season.id)}
           dateLabel={new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+          ownerNames={ownerNames}
           onClose={() => setShowImage(false)}
         />
       ) : null}

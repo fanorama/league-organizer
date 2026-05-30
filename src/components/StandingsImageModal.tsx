@@ -10,6 +10,7 @@ interface StandingsImageModalProps {
   seasonNumber: number;
   matchday: number | null;
   dateLabel: string;
+  ownerNames: Record<string, string>;
   onClose: () => void;
 }
 
@@ -18,7 +19,7 @@ function slugify(value: string): string {
 }
 
 export function StandingsImageModal({
-  rows, leagueName, seasonNumber, matchday, dateLabel, onClose,
+  rows, leagueName, seasonNumber, matchday, dateLabel, ownerNames, onClose,
 }: StandingsImageModalProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [failedLogos, setFailedLogos] = useState<Set<string>>(new Set());
@@ -93,6 +94,7 @@ export function StandingsImageModal({
           seasonNumber={seasonNumber}
           matchday={matchday}
           dateLabel={dateLabel}
+          ownerNames={ownerNames}
           failedLogos={failedLogos}
           onLogoSettled={handleSettled}
           onLogoError={handleError}

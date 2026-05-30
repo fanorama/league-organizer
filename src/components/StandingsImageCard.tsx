@@ -16,7 +16,7 @@ const STYLE = `
 .sic-sub { font-size:11px; letter-spacing:1px; color:rgba(255,255,255,.55); margin-top:7px; }
 .sic-colhead { display:flex; align-items:center; font-size:9px; letter-spacing:2px; color:rgba(255,255,255,.42); text-transform:uppercase; padding:0 4px 8px; }
 .sic-colhead .sic-nm{flex:1} .sic-colhead .sic-st{width:36px;text-align:center} .sic-colhead .sic-pt{width:44px;text-align:right}
-.sic-colhead .sic-rk{width:28px} .sic-colhead .sic-lg{width:32px}
+.sic-colhead .sic-rk{width:56px}
 .sic-list { flex:1; display:flex; flex-direction:column; }
 .sic-r { display:flex; align-items:center; flex:1; padding:0 4px; position:relative; }
 .sic-r > span { position:relative; z-index:1; }
@@ -40,6 +40,7 @@ interface StandingsImageCardProps {
   seasonNumber: number;
   matchday: number | null;
   dateLabel: string;
+  ownerNames: Record<string, string>;
   failedLogos: Set<string>;
   onLogoSettled: (teamId: string) => void;
   onLogoError: (teamId: string) => void;
@@ -48,7 +49,7 @@ interface StandingsImageCardProps {
 
 export function StandingsImageCard({
   rows, leagueName, seasonNumber, matchday, dateLabel,
-  failedLogos, onLogoSettled, onLogoError, innerRef,
+  ownerNames, failedLogos, onLogoSettled, onLogoError, innerRef,
 }: StandingsImageCardProps) {
   return (
     <div className="sic" ref={innerRef}>
@@ -61,7 +62,7 @@ export function StandingsImageCard({
           <div className="sic-sub">{matchday !== null ? `Pekan ${matchday} — ${dateLabel}` : dateLabel}</div>
         </div>
         <div className="sic-colhead">
-          <span className="sic-rk" /><span className="sic-lg" /><span className="sic-nm">Tim</span>
+          <span className="sic-rk" /><span className="sic-nm">Tim</span>
           <span className="sic-st">M</span><span className="sic-st">SG</span><span className="sic-pt">Pts</span>
         </div>
         <div className="sic-list">
@@ -83,7 +84,7 @@ export function StandingsImageCard({
                     />
                   ) : getInitials(row.team)}
                 </span>
-                <span className="sic-nm">{row.team.name}</span>
+                <span className="sic-nm">{ownerNames[row.team.id] || row.team.name}</span>
                 <span className="sic-st">{row.played}</span>
                 <span className="sic-st">{formatGoalDiff(row.gd)}</span>
                 <span className="sic-pt">{row.pts}</span>
