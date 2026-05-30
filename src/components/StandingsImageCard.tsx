@@ -23,9 +23,10 @@ const STYLE = `
 .sic-champ { position:absolute; inset:0 -10px; z-index:0; border-radius:4px;
   background:linear-gradient(90deg, rgba(139,92,246,.26), rgba(139,92,246,0)); }
 .sic-rk { width:28px; font-weight:800; font-size:17px; color:rgba(255,255,255,.85); }
-.sic-lg { width:24px; height:24px; border-radius:50%; margin-right:13px; flex:none;
-  display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; overflow:hidden; }
-.sic-lg img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+.sic-lg { width:24px; height:24px; border-radius:3px; margin-right:13px; flex:none;
+  display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; overflow:hidden;
+  background:rgba(255,255,255,.08); }
+.sic-lg img { width:100%; height:100%; object-fit:contain; }
 .sic-nm { flex:1; font-weight:700; font-size:15px; letter-spacing:.3px; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .sic-st { width:36px; text-align:center; font-size:14px; color:rgba(255,255,255,.7); }
 .sic-pt { width:44px; text-align:right; font-weight:800; font-size:18px; }
