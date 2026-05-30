@@ -12,7 +12,7 @@ League Organizer adalah aplikasi web multi-liga. Dibangun dengan React + TypeScr
 - **Supabase** (`@supabase/supabase-js`) sebagai backend + auth
 - `localStorage` hanya untuk `clubs_cache` (cache API Football)
 - Vitest + jsdom + Testing Library untuk unit test
-- API Football (v3.football.api-sports.io) untuk import data klub
+- API Football (v3.football.api-sports.io) untuk import data klub, di-proxy via serverless function `api/football.ts` (Vercel)
 
 ## Setup & Cara Menjalankan
 
@@ -25,6 +25,7 @@ Buat file `.env` di root project dengan variabel berikut (lihat `.env.example`):
 ```
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon-public-key>
+FOOTBALL_API_KEY=<api-sports-key>   # dipakai server-side oleh proxy /api/football
 ```
 
 ```bash
@@ -44,7 +45,7 @@ npm run test:ui    # Buka Vitest UI di browser
 npm run coverage   # Coverage report ke ./coverage/
 ```
 
-File test berada di samping source-nya (`*.test.ts` / `*.test.tsx`). Test environment menggunakan jsdom. Coverage hanya dihitung untuk `src/lib/**` dan `src/store/**`.
+File test berada di samping source-nya (`*.test.ts` / `*.test.tsx`). Test include pattern mencakup `src/**` dan `api/**`. Test environment menggunakan jsdom. Coverage hanya dihitung untuk `src/lib/**` dan `src/store/**`.
 
 **Supabase di-mock sepenuhnya di test.** Setup global ada di `src/test/setup.ts` — ia mock `@supabase/supabase-js` dan juga menyediakan in-memory `localStorage` shim (dibutuhkan Node.js 22+). Saat menambah test baru yang memanggil storage functions, set return value mock sesuai kebutuhan:
 
@@ -69,29 +70,37 @@ src/
     PlayersPage.tsx     # Leaderboard global semua player
     PlayerPage.tsx      # Profil player: stats per liga + H2H
     LoginPage.tsx       # Halaman login admin (Supabase Auth)
+    QuickMatchPage.tsx          # Daftar & buat quick match session
+    QuickMatchSessionPage.tsx   # Detail session: pilih klub per player, input game, stats
   components/
     Shell.tsx           # Layout wrapper + navigasi + tombol Login/Logout
     Badge.tsx           # Badge komponen
     TeamBadge.tsx       # Badge tim dengan logo
     SpinWheel.tsx       # Spin wheel modal untuk assign owner
+    ImportClubGrid.tsx  # Grid picker import klub dengan tab kompetisi (TeamsPage)
+    ClubPickerModal.tsx # Modal pemilihan klub per player (quick match)
   store/
-    useLeagueStore.ts   # Zustand store untuk liga
-    useTeamStore.ts     # Zustand store untuk tim
-    useSeasonStore.ts   # Zustand store untuk musim
-    useMatchStore.ts    # Zustand store untuk pertandingan
-    usePlayerStore.ts   # Zustand store untuk player global
-    useAuthStore.ts     # Zustand store untuk auth session (isAdmin)
+    useLeagueStore.ts       # Zustand store untuk liga
+    useTeamStore.ts         # Zustand store untuk tim
+    useSeasonStore.ts       # Zustand store untuk musim
+    useMatchStore.ts        # Zustand store untuk pertandingan
+    usePlayerStore.ts       # Zustand store untuk player global
+    useAuthStore.ts         # Zustand store untuk auth session (isAdmin)
+    useQuickMatchStore.ts   # Zustand store untuk quick match session
   lib/
     types.ts            # TypeScript interfaces semua entitas
     storage.ts          # CRUD Supabase + mapper camelCase↔snake_case
     supabase.ts         # Inisialisasi Supabase client (singleton)
-    api.ts              # fetchClubs() dari API Football, cache 7 hari
+    api.ts              # fetchClubs() via /api/football, cache 7 hari di localStorage
     schedule.ts         # generateRoundRobin(), playoff bracket logic
     standings.ts        # calculateStandings() — Pts, GD, GF tiebreaker
     playerStats.ts      # calculatePlayerStats(), calculateHeadToHead()
     playerAssignment.ts # Helper assign player ke tim di liga
+    quickMatchStats.ts  # calculateQuickMatchStatsFromData() untuk session quick match
   test/
     setup.ts            # Vitest global setup + mock Supabase + localStorage shim
+api/
+  football.ts           # Serverless function (Vercel) proxy ke API Football, baca FOOTBALL_API_KEY
 styles/
   main.css              # Design system dan komponen styles
 ```
@@ -109,6 +118,8 @@ Menggunakan `HashRouter` — semua route berbasis hash (`#/`):
 | `#/league/:id/season/:seasonId` | Jadwal + klasemen + playoff |
 | `#/players` | Leaderboard global player |
 | `#/player/:id` | Profil player (stats + H2H) |
+| `#/quick-match` | Daftar & buat quick match session |
+| `#/quick-match/:sessionId` | Detail quick match session |
 
 ## Data Model (Supabase Tables)
 
@@ -122,7 +133,7 @@ Menggunakan `HashRouter` — semua route berbasis hash (`#/`):
 
 **Nama kolom di DB menggunakan `snake_case`.** Konversi ke/dari `camelCase` dilakukan oleh mapper di `storage.ts` (misalnya `leagueId` ↔ `league_id`).
 
-`clubs_cache` dan `app_settings` (API key) **masih di `localStorage`** — tidak ada di Supabase.
+`clubs_cache` **masih di `localStorage`** — tidak ada di Supabase. Quick match session disimpan via `useQuickMatchStore` (lihat `storage.ts`).
 
 Semua entitas menggunakan `crypto.randomUUID()` via `createId()` di `storage.ts`.
 
@@ -184,9 +195,10 @@ Saat menambah tipe data baru:
 
 ## API Football
 
-- Base URL: `https://v3.football.api-sports.io`
-- Header: `x-apisports-key: <API_KEY>`
-- API key disimpan di `localStorage` via SettingsPage (masih menggunakan localStorage, bukan Supabase)
+- Upstream: `https://v3.football.api-sports.io/teams`
+- **Tidak dipanggil langsung dari browser.** Client (`src/lib/api.ts`) memanggil `/api/football?league=<id>&season=<year>`
+- Di produksi proxy adalah serverless function `api/football.ts` (Vercel) yang membaca `FOOTBALL_API_KEY` dari env server dan menambah header `x-apisports-key`
+- Di dev, proxy disediakan oleh plugin `football-api-dev-proxy` di `vite.config.ts` (juga baca `FOOTBALL_API_KEY`)
 - Cache per `competitionId:season` — TTL 7 hari, disimpan di `localStorage` key `clubs_cache`
 - Kompetisi yang didukung: Premier League (39), Serie A (135), La Liga (140), Bundesliga (78), Ligue 1 (61) — season 2024
 
@@ -195,8 +207,12 @@ Saat menambah tipe data baru:
 - **`.env` wajib ada** — `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` harus diset, lihat `.env.example`
 - **Verifikasi UI dengan browser** — unit test hanya untuk `src/lib/**` dan `src/store/**`, bukan komponen React. Untuk perubahan UI gunakan `npm run dev`
 - **Mock Supabase di test** — `src/test/setup.ts` mock seluruh `@supabase/supabase-js`. Jangan buat koneksi Supabase nyata di test
-- **Clubs cache masih di localStorage** — satu-satunya data yang tidak di Supabase adalah `clubs_cache` dan `app_settings` (API key)
+- **Clubs cache masih di localStorage** — `clubs_cache` adalah satu-satunya data yang tidak di Supabase. API key sekarang `FOOTBALL_API_KEY` di env server (tidak lagi di localStorage)
 - **Spin wheel hanya untuk pool teams** — tim dengan `status: "active"` sudah tidak masuk wheel
 - **`matchday: 99`** digunakan sebagai penanda pertandingan yang ditunda (delayed)
 - **`ownerSnapshots`** digunakan untuk kalkulasi stats player — jangan skip ini saat membuat musim baru
 - **`@ts-nocheck`** di `schedule.ts` — file ini kompleks, perlu perhatian ekstra saat modifikasi
+
+## Commit Terakhir
+
+`bd03958` — feat(teams): ganti ImportModal dari checkbox list ke grid picker dengan tab kompetisi (#11) — 2026-05-29
