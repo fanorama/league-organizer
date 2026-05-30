@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Badge } from '../components/Badge';
 import { Shell } from '../components/Shell';
+import { StandingsImageModal } from '../components/StandingsImageModal';
 import { TeamBadge } from '../components/TeamBadge';
 import { advancePlayoffRound, createSeasonWithSchedule, replaceSeasonSchedule, resolveMultiLegWinnerPublic, startPlayoff } from '../lib/schedule';
 import { calculateStandingsFromData } from '../lib/standings';
+import { latestMatchday } from '../lib/standingsImage';
 import type { League, Match, PlayoffSlot, Season, Team } from '../lib/types';
 import { useAuthStore } from '../store/useAuthStore';
 import { useLeagueStore } from '../store/useLeagueStore';
@@ -134,7 +136,7 @@ export function SeasonPage() {
         ) : null}
       </div>
       <section id="tabContent">
-        {safeActiveTab === 'standings' ? <StandingsTab season={currentSeason} teams={teams} matches={matches} /> : null}
+        {safeActiveTab === 'standings' ? <StandingsTab season={currentSeason} teams={teams} matches={matches} league={currentLeague} isAdmin={isAdmin} /> : null}
         {safeActiveTab === 'playoff' ? <PlayoffTab season={currentSeason} league={currentLeague} teams={teamById} refresh={async () => { await refreshSeasons(); await refreshMatches(); }} isAdmin={isAdmin} /> : null}
         {safeActiveTab === 'schedule' ? <ScheduleTab season={currentSeason} teams={teamById} matches={leagueMatches} updateMatch={updateMatch} refreshMatches={refreshMatches} isAdmin={isAdmin} /> : null}
       </section>
@@ -273,11 +275,17 @@ function TeamSummary({ team, season, side = 'home' }: { team?: Team; season: Sea
   );
 }
 
-function StandingsTab({ season, teams, matches }: { season: Season; teams: Team[]; matches: Match[] }) {
+function StandingsTab({ season, teams, matches, league, isAdmin }: { season: Season; teams: Team[]; matches: Match[]; league: League; isAdmin: boolean }) {
   const rows = calculateStandingsFromData(season, teams, matches);
+  const [showImage, setShowImage] = useState(false);
 
   return (
     <section className="panel">
+      {isAdmin ? (
+        <div className="standings-actions">
+          <button className="btn primary" type="button" onClick={() => setShowImage(true)}>Bagikan Gambar</button>
+        </div>
+      ) : null}
       <div className="panel-body" style={{ overflow: 'auto' }}>
         <table>
           <thead>
@@ -323,6 +331,16 @@ function StandingsTab({ season, teams, matches }: { season: Season; teams: Team[
           </tbody>
         </table>
       </div>
+      {showImage ? (
+        <StandingsImageModal
+          rows={rows}
+          leagueName={league.name}
+          seasonNumber={season.number}
+          matchday={latestMatchday(matches, season.id)}
+          dateLabel={new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+          onClose={() => setShowImage(false)}
+        />
+      ) : null}
     </section>
   );
 }
