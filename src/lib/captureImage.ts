@@ -9,5 +9,6 @@ export async function captureCardToPng(node: HTMLElement): Promise<string> {
   return toPng(node, {
     pixelRatio: OUTPUT_SIZE / natural,
     cacheBust: true,
+    includeQueryParams: true,
   });
 }
