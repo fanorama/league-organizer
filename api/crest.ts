@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const ALLOWED_HOSTS = new Set(['crests.football-data.org']);
+const ALLOWED_HOSTS = new Set(['crests.football-data.org', 'media.api-sports.io']);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const raw = req.query.url;
@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Host not allowed' });
   }
   // Sibling .png selalu tersedia di CDN football-data; hindari rasterisasi SVG.
-  if (parsed.pathname.endsWith('.svg')) {
+  if (parsed.hostname === 'crests.football-data.org' && parsed.pathname.endsWith('.svg')) {
     parsed.pathname = parsed.pathname.replace(/\.svg$/, '.png');
   }
 

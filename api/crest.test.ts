@@ -42,4 +42,21 @@ describe('crest proxy', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.send).toHaveBeenCalled();
   });
+
+  it('mengizinkan logo dari API-Sports tanpa normalisasi path', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'image/png' },
+      arrayBuffer: async () => new ArrayBuffer(8),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const res = createResponse();
+
+    await handler({ query: { url: 'https://media.api-sports.io/football/teams/33.png' } } as any, res as any);
+
+    expect(fetchMock).toHaveBeenCalledWith('https://media.api-sports.io/football/teams/33.png', expect.any(Object));
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.send).toHaveBeenCalled();
+  });
 });

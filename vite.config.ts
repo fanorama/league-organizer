@@ -39,7 +39,7 @@ export default defineConfig({
     {
       name: 'crest-dev-proxy',
       configureServer(server) {
-        const ALLOWED_HOSTS = new Set(['crests.football-data.org']);
+        const ALLOWED_HOSTS = new Set(['crests.football-data.org', 'media.api-sports.io']);
         server.middlewares.use(async (req, res, next) => {
           if (!req.url?.startsWith('/api/crest')) {
             next();
@@ -64,7 +64,7 @@ export default defineConfig({
             res.end('Host not allowed');
             return;
           }
-          if (parsed.pathname.endsWith('.svg')) {
+          if (parsed.hostname === 'crests.football-data.org' && parsed.pathname.endsWith('.svg')) {
             parsed.pathname = parsed.pathname.replace(/\.svg$/, '.png');
           }
           const upstream = await fetch(parsed.toString());
