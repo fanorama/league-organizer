@@ -36,6 +36,45 @@ export default defineConfig({
         });
       },
     },
+    {
+      name: 'crest-dev-proxy',
+      configureServer(server) {
+        const ALLOWED_HOSTS = new Set(['crests.football-data.org']);
+        server.middlewares.use(async (req, res, next) => {
+          if (!req.url?.startsWith('/api/crest')) {
+            next();
+            return;
+          }
+          const target = new URL(req.url, 'http://localhost').searchParams.get('url');
+          if (!target) {
+            res.statusCode = 400;
+            res.end('Missing url parameter');
+            return;
+          }
+          let parsed: URL;
+          try {
+            parsed = new URL(target);
+          } catch {
+            res.statusCode = 400;
+            res.end('Invalid url');
+            return;
+          }
+          if (parsed.protocol !== 'https:' || !ALLOWED_HOSTS.has(parsed.hostname)) {
+            res.statusCode = 400;
+            res.end('Host not allowed');
+            return;
+          }
+          if (parsed.pathname.endsWith('.svg')) {
+            parsed.pathname = parsed.pathname.replace(/\.svg$/, '.png');
+          }
+          const upstream = await fetch(parsed.toString());
+          res.statusCode = upstream.status;
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('content-type', upstream.headers.get('content-type') || 'image/png');
+          res.end(Buffer.from(await upstream.arrayBuffer()));
+        });
+      },
+    },
   ],
   test: {
     environment: 'jsdom',
