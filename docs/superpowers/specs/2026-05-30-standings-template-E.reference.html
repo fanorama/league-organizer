@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<!--
+  SUMBER KEBENARAN VISUAL — Template "E · Glow Poster" (disetujui 2026-05-30).
+  Markup + CSS di bawah HARUS direproduksi persis oleh komponen
+  src/components/StandingsImageCard.tsx. Jangan mengubah gaya/layout.
+
+  Catatan implementasi:
+  - Kartu berukuran natural 440x440 (nilai px di bawah sudah final & disetujui).
+  - Untuk output 1080x1080, JANGAN menulis ulang nilai px. Cukup capture node ini
+    dengan html-to-image memakai pixelRatio = 1080/440 ≈ 2.4545
+    (atau bungkus dengan transform: scale(2.4545)). Proporsi tetap identik.
+  - Data (nama liga, musim, pekan, tanggal, baris tim) di-inject dari props;
+    konten di bawah hanya contoh.
+  - Logo: <img> memakai URL terproksi (/api/crest?url=...). Bila gagal/bukan URL,
+    ganti elemen logo dengan lingkaran inisial berwarna (lihat .lg sebagai dasar).
+-->
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin:0; background:#07040d; display:flex; justify-content:center; padding:40px; }
+  .sq4 * { box-sizing:border-box; }
+  .sq4 { width:440px; height:440px; border-radius:8px; overflow:hidden; position:relative;
+         font-family:'Helvetica Neue',Arial,sans-serif; color:#fff;
+         box-shadow:0 18px 50px rgba(0,0,0,.55); }
+
+  .sq4.heroE { background:
+      radial-gradient(90% 70% at 85% 110%, #8b5cf6 0%, #5b21b6 28%, transparent 60%),
+      linear-gradient(155deg,#0b0612 0%, #1a0f2e 55%, #0a0510 100%); }
+  .sq4.heroE .glow { position:absolute; inset:0;
+      background:radial-gradient(60% 40% at 12% 0%, rgba(139,92,246,.25), transparent 60%); }
+
+  .sq4 .wrap { position:relative; z-index:2; height:100%; display:flex; flex-direction:column; padding:26px 28px 20px; }
+
+  .sq4 .titlewrap { margin-bottom:14px; }
+  .sq4 .kick { font-size:10px; letter-spacing:4px; text-transform:uppercase; color:#c4b5fd; font-weight:700; }
+  .sq4 .big { font-size:27px; font-weight:800; line-height:1; letter-spacing:-.3px; text-transform:uppercase; margin-top:6px; }
+  .sq4 .sub { font-size:11px; letter-spacing:1px; color:rgba(255,255,255,.55); margin-top:7px; }
+
+  .sq4 .colhead { display:flex; align-items:center; font-size:9px;
+             letter-spacing:2px; color:rgba(255,255,255,.42); text-transform:uppercase; padding:0 4px 8px; }
+  .sq4 .colhead .nm{flex:1} .sq4 .colhead .st{width:36px;text-align:center} .sq4 .colhead .pt{width:44px;text-align:right}
+  .sq4 .colhead .rk{width:28px} .sq4 .colhead .lg{width:32px}
+
+  .sq4 .list { flex:1; display:flex; flex-direction:column; }
+  .sq4 .r { display:flex; align-items:center; flex:1; padding:0 4px; }
+  .sq4 .rk { width:28px; font-weight:800; font-size:17px; color:rgba(255,255,255,.85); }
+  .sq4 .lg { width:24px; height:24px; border-radius:50%; margin-right:13px; flex:none;
+             display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; }
+  .sq4 .lg img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+  .sq4 .nm { flex:1; font-weight:700; font-size:15px; letter-spacing:.3px; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sq4 .st { width:36px; text-align:center; font-size:14px; color:rgba(255,255,255,.7); }
+  .sq4 .pt { width:44px; text-align:right; font-weight:800; font-size:18px; }
+
+  /* Sorotan juara (peringkat 1) */
+  .sq4.heroE .r:first-child{ position:relative; }
+  .sq4.heroE .r:first-child::before{ content:""; position:absolute; inset:0 -10px;
+      background:linear-gradient(90deg, rgba(139,92,246,.26), rgba(139,92,246,0)); z-index:-1; border-radius:4px; }
+  .sq4.heroE .r:first-child .pt{ color:#ddd6fe; }
+
+  .sq4 .credit { font-size:9px; letter-spacing:2px; text-transform:uppercase;
+            color:rgba(255,255,255,.4); margin-top:10px; text-align:right; }
+</style>
+</head>
+<body>
+  <div class="sq4 heroE">
+    <div class="glow"></div>
+    <div class="wrap">
+      <div class="titlewrap">
+        <div class="kick">Klasemen · Musim 3</div>
+        <div class="big">Liga Fanorama</div>
+        <div class="sub">Pekan 14 — 30 Mei 2026</div>
+      </div>
+      <div class="colhead"><span class="rk"></span><span class="lg"></span><span class="nm">Tim</span><span class="st">M</span><span class="st">SG</span><span class="pt">Pts</span></div>
+      <div class="list">
+        <div class="r"><span class="rk">1</span><span class="lg" style="background:#dc2626">AR</span><span class="nm">Arsenal</span><span class="st">14</span><span class="st">+22</span><span class="pt">34</span></div>
+        <div class="r"><span class="rk">2</span><span class="lg" style="background:#0ea5e9">MC</span><span class="nm">Man City</span><span class="st">14</span><span class="st">+18</span><span class="pt">31</span></div>
+        <div class="r"><span class="rk">3</span><span class="lg" style="background:#facc15">LI</span><span class="nm">Liverpool</span><span class="st">14</span><span class="st">+12</span><span class="pt">28</span></div>
+        <div class="r"><span class="rk">4</span><span class="lg" style="background:#1d4ed8">CH</span><span class="nm">Chelsea</span><span class="st">14</span><span class="st">+6</span><span class="pt">24</span></div>
+        <div class="r"><span class="rk">5</span><span class="lg" style="background:#7c3aed">NE</span><span class="nm">Newcastle</span><span class="st">14</span><span class="st">+3</span><span class="pt">21</span></div>
+        <div class="r"><span class="rk">6</span><span class="lg" style="background:#ea580c">AV</span><span class="nm">Aston Villa</span><span class="st">14</span><span class="st">-2</span><span class="pt">18</span></div>
+        <div class="r"><span class="rk">7</span><span class="lg" style="background:#64748b">BR</span><span class="nm">Brighton</span><span class="st">14</span><span class="st">-9</span><span class="pt">12</span></div>
+        <div class="r"><span class="rk">8</span><span class="lg" style="background:#b91c1c">WO</span><span class="nm">Wolves</span><span class="st">14</span><span class="st">-18</span><span class="pt">8</span></div>
+      </div>
+      <div class="credit">Fanorama League</div>
+    </div>
+  </div>
+</body>
+</html>

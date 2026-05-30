@@ -97,6 +97,9 @@ Hasil: gambar **selalu** berhasil dibuat, rapi dalam kondisi apa pun.
 
 ## Detail Visual (Template E)
 
+> **Sumber kebenaran visual:** [`2026-05-30-standings-template-E.reference.html`](./2026-05-30-standings-template-E.reference.html) berisi markup + CSS final yang disetujui. `StandingsImageCard.tsx` **harus** mereproduksi struktur & gaya itu persis. **Jangan** menulis ulang nilai px untuk ukuran 1080: render kartu pada ukuran natural 440×440, lalu capture dengan `html-to-image` memakai `pixelRatio = 1080/440 ≈ 2.4545` agar output 1080×1080 dengan proporsi identik.
+
+
 - Kanvas 1080×1080, `border-radius: 8px`, `overflow: hidden`.
 - Latar: `radial-gradient` glow ungu di sudut bawah-kanan + `linear-gradient` gelap (hitam→ungu).
 - Header: kicker ungu muda (letter-spacing lebar), judul liga besar tebal uppercase, subjudul abu transparan.
