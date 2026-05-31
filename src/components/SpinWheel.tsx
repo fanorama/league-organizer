@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAuthStore } from '../store/useAuthStore';
 import { useMatchStore } from '../store/useMatchStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useSeasonStore } from '../store/useSeasonStore';
 import { useTeamStore } from '../store/useTeamStore';
-import { DRAW_ORDER, getActiveDrawTier, pickWeightedClub, type PlayerWithSkill } from '../lib/balancedDraw';
+import { getActiveDrawTier, pickWeightedClub, type PlayerWithSkill } from '../lib/balancedDraw';
 import { canAssignPlayerToLeague, getAssignablePlayersForLeague } from '../lib/playerAssignment';
-import { resolvePlayerSkill, type SkillTier } from '../lib/playerSkill';
+import { resolvePlayerSkill } from '../lib/playerSkill';
 import { calculatePlayerStatsFromData } from '../lib/playerStats';
 import type { Team } from '../lib/types';
 
@@ -38,12 +37,10 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
   const updateTeam = useTeamStore((s) => s.updateTeam);
   const players = usePlayerStore((s) => s.players);
   const addPlayer = usePlayerStore((s) => s.addPlayer);
-  const updatePlayer = usePlayerStore((s) => s.updatePlayer);
   const seasons = useSeasonStore((s) => s.seasons);
   const matches = useMatchStore((s) => s.matches);
   const fetchSeasons = useSeasonStore((s) => s.fetchSeasons);
   const fetchMatches = useMatchStore((s) => s.fetchMatches);
-  const isAdmin = useAuthStore((s) => s.isAdmin);
 
   const [selected, setSelected] = useState<Team | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
@@ -100,16 +97,6 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
 
   const selectedSkill = selectedPlayer?.skill ?? null;
   const showAddNew = activeTier === 'sedang';
-
-  const tierCounts = useMemo(() => {
-    const counts: Record<string, number> = { pemula: 0, sedang: 0, jago: 0 };
-    for (const ps of playerSkills) counts[ps.skill]++;
-    return counts;
-  }, [playerSkills]);
-
-  const tierLabel = activeTier
-    ? `${activeTier.charAt(0).toUpperCase() + activeTier.slice(1)} (${tierCounts[activeTier]} tersisa)`
-    : '';
 
   // Putaran pelan saat idle (belum spin, belum ada pemenang). Memakai
   // rotationRef yang sama dengan spin asli sehingga pointer tetap akurat.
@@ -251,22 +238,7 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
     await onDone();
   }
 
-  async function cycleSkillOverride() {
-    if (!selectedPlayer || !isAdmin) return;
-    const cycle: (SkillTier | null)[] = ['jago', 'sedang', 'pemula', null];
-    const current = selectedPlayer.player.skillOverride ?? null;
-    const nextIndex = (cycle.indexOf(current) + 1) % cycle.length;
-    await updatePlayer({ ...selectedPlayer.player, skillOverride: cycle[nextIndex] });
-  }
-
   if (!open) return null;
-
-  const tierOrderLabel = DRAW_ORDER.map((t) => {
-    const first = t.charAt(0).toUpperCase() + t.slice(1);
-    const count = tierCounts[t];
-    if (t === activeTier) return `${first} ← (${count})`;
-    return `${first} (${count})`;
-  }).join(' → ');
 
   return (
     <div
@@ -329,11 +301,8 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
               <div className="empty">Klub pool habis.</div>
             ) : (
               <>
-                <p className="muted" style={{ textAlign: 'center' }}>
-                  Urutan: {tierOrderLabel}
-                </p>
                 <div className="field">
-                  <label>Pilih pemain — Giliran: {tierLabel}</label>
+                  <label>Pilih pemain</label>
                   <select
                     value={selectedPlayerId}
                     onChange={(e) => setSelectedPlayerId(e.target.value)}
@@ -358,23 +327,6 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
                       required
                       autoFocus
                     />
-                  </div>
-                ) : null}
-                {selectedPlayer && selectedSkill ? (
-                  <div className="field">
-                    <label>Skill</label>
-                    {isAdmin ? (
-                      <button
-                        type="button"
-                        className={`badge skill-badge skill-${selectedSkill}`}
-                        onClick={cycleSkillOverride}
-                        title="Klik untuk override skill"
-                      >
-                        {selectedSkill}
-                      </button>
-                    ) : (
-                      <span className={`badge skill-badge skill-${selectedSkill}`}>{selectedSkill}</span>
-                    )}
                   </div>
                 ) : null}
                 <button

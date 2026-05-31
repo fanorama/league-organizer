@@ -15,12 +15,13 @@ Indonesian-first, direct, functional. No marketing fluff, no exclamation points,
 
 ## Composition Lanes
 
-The app has four dominant work patterns. Different screens need different compositions — do not default to centered hero + card grid.
+The app mixes five dominant work patterns. Different screens need different compositions — do not default to centered hero + card grid.
 
 - **Operate** (TeamsPage, SeasonPage score input, SpinWheel): Command-like flows. Actions sit close to the object they operate on. Dense list rows with inline controls. Popovers and panels, not page-navigating modals.
 - **Compare** (Standings tab, PlayersPage leaderboard, PlayerPage H2H): Tables and ranked lists. Stable scanning lanes. Sort controls near the data, not floating.
 - **Configure** (LeaguePage season creation, team import, playoff setup): Grouped settings with preview. Clear commit. Side panels for detail.
 - **Monitor** (SeasonPage schedule): Status boards with live priority. Match cards with score input near each match.
+- **Explore** (ClubsPage, ClubPickerModal, import club grid): Search, filter, browse. Auto-fill grid with selectable cards. Tabs for category navigation. Bulk multi-select with floating action pill. Immediate visual feedback on tier and selection state.
 
 ## Visual Foundation
 
@@ -32,11 +33,13 @@ The app has four dominant work patterns. Different screens need different compos
 
 ## Component Rules
 
-- **Badges** signal status or category inline. Use the existing `.badge` system with `.success`, `.warning`, `.danger` modifiers. Do not invent new badge colors without adding a system-level modifier.
+- **Badges** signal status or category inline. Use the existing `.badge` system with `.success`, `.warning`, `.danger` modifiers. Skill badges use `.skill-jago`, `.skill-sedang`, `.skill-pemula` — each with color-coded treatment (warning/primary/success-like). Do not invent new badge colors without adding a system-level modifier.
 - **Buttons** follow the existing hierarchy: `.primary` (gold, commit actions), default `.btn` (neutral), `.danger` (destructive), `.btn-xs` (inline controls). All caps, 11px, 700 weight, 0.07em letter-spacing.
 - **Popovers** (tier menu, assign dropdown) are the preferred pattern for inline actions. They open from the trigger, close on click-outside or Escape, animate with scale+fade, and restore focus to trigger.
 - **Modals** are for interruptions that need context isolation: import clubs, spin wheel. Not for simple selects.
-- **Cards** are for discrete, self-contained entities: leagues, seasons. Not for everything. Pool teams are list rows, not cards, because they share a panel context.
+- **Cards** are for discrete, self-contained entities: leagues, seasons, clubs. Club cards (`club-card`) have tier-driven gradient tops and a checkmark for multi-select mode. Pool teams are list rows, not cards, because they share a panel context.
+- **Club cards** (`club-card`) follow tier-driven styling: top gradient bar (`elite` → danger red, `mid` → neutral, `underdog` → green success). Hover lifts 2px with shadow. A `.club-select-check` appears in top-right when `[data-selected]`. Cards live inside a `.tier-board` grid (auto-fill, minmax 170px).
+- **Bulk action pill** (`.club-bulk`) floats inline during multi-select. Shows selection count, tier-assign buttons (elite/mid/underdog), and a clear link. Pill uses rounded-full shape, subtle shadow, and inline flex layout.
 
 ## Accessibility
 
