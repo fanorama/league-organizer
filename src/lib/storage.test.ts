@@ -3,12 +3,16 @@ import {
   byCreatedAtDesc,
   getCache,
   getLeagues,
+  getPlayers,
   getQuickMatchGamesBySession,
   getQuickMatchSessions,
+  getTeams,
   saveCache,
   saveLeague,
+  savePlayer,
   saveQuickMatchGame,
   saveQuickMatchSession,
+  saveTeam,
 } from './storage';
 
 const mocks = vi.hoisted(() => ({
@@ -254,5 +258,168 @@ describe('byCreatedAtDesc', () => {
     const older = { createdAt: '2024-01-01T00:00:00Z' };
     const newer = { createdAt: '2024-06-01T00:00:00Z' };
     expect(byCreatedAtDesc(older, newer)).toBeGreaterThan(0);
+  });
+});
+
+describe('team tier mapper', () => {
+  it('maps tier from snake_case to camelCase on read', async () => {
+    const q = query({
+      order: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 't1',
+            league_id: 'l1',
+            name: 'Arsenal',
+            short_name: 'ARS',
+            badge: 'ARS',
+            logo: null,
+            status: 'pool',
+            owner_id: null,
+            tier: 'elite',
+            external_id: null,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const teams = await getTeams();
+
+    expect(teams[0].tier).toBe('elite');
+  });
+
+  it('maps null tier as null', async () => {
+    const q = query({
+      order: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 't1',
+            league_id: 'l1',
+            name: 'Arsenal',
+            short_name: 'ARS',
+            badge: 'ARS',
+            logo: null,
+            status: 'pool',
+            owner_id: null,
+            tier: null,
+            external_id: null,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const teams = await getTeams();
+
+    expect(teams[0].tier).toBeNull();
+  });
+
+  it('upserts tier as snake_case', async () => {
+    const q = query({
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: 't1',
+          league_id: 'l1',
+          name: 'Arsenal',
+          short_name: 'ARS',
+          badge: 'ARS',
+          logo: null,
+          status: 'pool',
+          owner_id: null,
+          tier: 'underdog',
+          external_id: null,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    await saveTeam({
+      leagueId: 'l1',
+      name: 'Arsenal',
+      shortName: 'ARS',
+      badge: 'ARS',
+      status: 'pool',
+      tier: 'underdog',
+      createdAt: '2026-01-01T00:00:00Z',
+    });
+
+    expect(q.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ tier: 'underdog' }),
+    );
+  });
+});
+
+describe('player skillOverride mapper', () => {
+  it('maps skill_override from snake_case on read', async () => {
+    const q = query({
+      order: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'p1',
+            name: 'Alice',
+            created_at: '2026-01-01T00:00:00Z',
+            skill_override: 'jago',
+          },
+        ],
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const players = await getPlayers();
+
+    expect(players[0].skillOverride).toBe('jago');
+  });
+
+  it('maps null skill_override as null', async () => {
+    const q = query({
+      order: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'p1',
+            name: 'Alice',
+            created_at: '2026-01-01T00:00:00Z',
+            skill_override: null,
+          },
+        ],
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const players = await getPlayers();
+
+    expect(players[0].skillOverride).toBeNull();
+  });
+
+  it('upserts skillOverride as skill_override', async () => {
+    const q = query({
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: 'p1',
+          name: 'Alice',
+          created_at: '2026-01-01T00:00:00Z',
+          skill_override: 'pemula',
+        },
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    await savePlayer({
+      name: 'Alice',
+      skillOverride: 'pemula',
+      createdAt: '2026-01-01T00:00:00Z',
+    });
+
+    expect(q.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ skill_override: 'pemula' }),
+    );
   });
 });

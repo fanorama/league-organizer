@@ -439,6 +439,27 @@ textarea {
   border-color: rgba(224, 48, 80, 0.25);
 }
 
+.badge.skill-jago {
+  color: #ffd07a;
+  background: var(--warning-bg);
+  border-color: rgba(240, 180, 41, 0.25);
+  cursor: pointer;
+}
+
+.badge.skill-sedang {
+  color: var(--primary);
+  background: rgba(240, 180, 41, 0.06);
+  border-color: rgba(240, 180, 41, 0.15);
+  cursor: pointer;
+}
+
+.badge.skill-pemula {
+  color: #68e8b0;
+  background: var(--success-bg);
+  border-color: rgba(38, 169, 108, 0.25);
+  cursor: pointer;
+}
+
 /* ─── TEAM ELEMENTS ─── */
 
 .team-badge {

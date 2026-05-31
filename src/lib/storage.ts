@@ -32,6 +32,7 @@ function dbToPlayer(row: DbRow): Player {
     id: row.id,
     name: row.name,
     createdAt: row.created_at,
+    skillOverride: row.skill_override ?? null,
   };
 }
 
@@ -40,6 +41,7 @@ function playerToDb(player: Partial<Player>): DbRow {
     id: player.id,
     name: player.name,
     created_at: player.createdAt,
+    skill_override: player.skillOverride ?? null,
   });
 }
 
@@ -53,6 +55,7 @@ function dbToTeam(row: DbRow): Team {
     logo: row.logo ?? undefined,
     status: row.status,
     ownerId: row.owner_id ?? null,
+    tier: row.tier ?? null,
     externalId: row.external_id ?? null,
     createdAt: row.created_at,
   };
@@ -68,6 +71,7 @@ function teamToDb(team: Partial<Team>): DbRow {
     logo: team.logo,
     status: team.status,
     owner_id: team.ownerId ?? null,
+    tier: team.tier ?? null,
     external_id: team.externalId ?? null,
     created_at: team.createdAt,
   });

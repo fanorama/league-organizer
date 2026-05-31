@@ -28,6 +28,7 @@ export interface Player {
   id: string;
   name: string;
   createdAt: string;
+  skillOverride?: 'jago' | 'sedang' | 'pemula' | null;
 }
 
 export interface Team {
@@ -40,6 +41,7 @@ export interface Team {
   owner?: string | null; // DEPRECATED — retained for migration fallback
   ownerId?: string | null; // points to Player.id global
   status: 'pool' | 'active';
+  tier?: 'elite' | 'mid' | 'underdog' | null;
   externalId?: string | null;
   createdAt?: string;
 }

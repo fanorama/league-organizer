@@ -8,7 +8,7 @@ import { TeamBadge } from '../components/TeamBadge';
 import { COMPETITIONS, fetchClubs } from '../lib/api';
 import { canAssignPlayerToLeague, getAssignablePlayersForLeague } from '../lib/playerAssignment';
 import { saveCache } from '../lib/storage';
-import type { ClubFromApi } from '../lib/types';
+import type { ClubFromApi, Team } from '../lib/types';
 import { useAuthStore } from '../store/useAuthStore';
 import { useLeagueStore } from '../store/useLeagueStore';
 import { usePlayerStore } from '../store/usePlayerStore';
@@ -169,6 +169,7 @@ export function TeamsPage() {
                             </div>
                           </div>
                           <div className="pool-actions">
+                            <TierBadge team={team} isAdmin={isAdmin} updateTeam={updateTeam} />
                             <Badge status="pool" />
                             {isAdmin ? (
                               <>
@@ -261,6 +262,31 @@ export function TeamsPage() {
       {isAdmin ? <SpinWheel leagueId={currentLeagueId} open={showWheel} onClose={() => setShowWheel(false)} onDone={refresh} /> : null}
       {isAdmin && showImport ? <ImportModal leagueId={currentLeagueId} onClose={() => setShowImport(false)} /> : null}
     </Shell>
+  );
+}
+
+function TierBadge({ team, isAdmin, updateTeam }: { team: Team; isAdmin: boolean; updateTeam: (t: Team) => Promise<Team> }) {
+  const tier = team.tier || 'mid';
+  const tierLabels: Record<string, string> = { elite: 'Elite', mid: 'Mid', underdog: 'Underdog' };
+  const tierClasses: Record<string, string> = { elite: 'danger', mid: '', underdog: 'success' };
+
+  function cycleTier() {
+    if (!isAdmin) return;
+    const cycle: (typeof team.tier)[] = ['elite', 'mid', 'underdog', null];
+    const current = team.tier ?? null;
+    const nextIndex = (cycle.indexOf(current) + 1) % cycle.length;
+    updateTeam({ ...team, tier: cycle[nextIndex] });
+  }
+
+  return (
+    <span
+      className={`badge ${tierClasses[tier] || ''}`}
+      onClick={cycleTier}
+      title={isAdmin ? 'Klik untuk ubah tier' : undefined}
+      style={isAdmin ? { cursor: 'pointer' } : undefined}
+    >
+      {tierLabels[tier] || tier}
+    </span>
   );
 }
 
