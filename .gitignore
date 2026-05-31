@@ -26,5 +26,7 @@ Thumbs.db
 .agents/
 skills-lock.json
 
+.commandcode/
+
 # Other
 .vercel

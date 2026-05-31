@@ -35,9 +35,10 @@ create table if not exists public.leagues (
 
 -- ===== players =====
 create table if not exists public.players (
-  id         uuid primary key default gen_random_uuid(),
-  name       text not null,
-  created_at timestamptz not null default now()
+  id             uuid primary key default gen_random_uuid(),
+  name           text not null,
+  skill_override text check (skill_override in ('jago','sedang','pemula')),  -- null = skill otomatis dari win rate
+  created_at     timestamptz not null default now()
 );
 
 -- ===== teams =====
@@ -51,8 +52,17 @@ create table if not exists public.teams (
   status      text not null default 'pool' check (status in ('pool','active')),
   owner_id    uuid references public.players(id) on delete set null,
   owner       text,            -- DEPRECATED: nama owner lama, hanya fallback migrasi
-  external_id text,            -- id klub dari football-data.org (sebagai string)
+  tier        text check (tier in ('elite','mid','underdog')),  -- tier klub di level tim (null → 'mid' saat draw)
+  external_id text,            -- id klub dari API Football (sebagai string)
   created_at  timestamptz not null default now()
+);
+
+-- ===== club_tiers =====
+-- Tier klub persisten lintas-liga, keyed by external_id (id klub API Football).
+-- Dipakai weighted spin wheel (balanced draw); tercermin ke teams.tier saat klub diimpor.
+create table if not exists public.club_tiers (
+  external_id text primary key,
+  tier        text not null check (tier in ('elite','mid','underdog'))
 );
 
 -- ===== seasons =====
@@ -150,6 +160,7 @@ alter table public.players              enable row level security;
 alter table public.teams                enable row level security;
 alter table public.seasons              enable row level security;
 alter table public.matches              enable row level security;
+alter table public.club_tiers           enable row level security;
 alter table public.quick_match_sessions enable row level security;
 alter table public.quick_match_games    enable row level security;
 ```
@@ -195,6 +206,14 @@ create policy "matches_public_read" on public.matches
   for select using (true);
 drop policy if exists "matches_authenticated_write" on public.matches;
 create policy "matches_authenticated_write" on public.matches
+  for all to authenticated using (true) with check (true);
+
+-- ===== club_tiers =====
+drop policy if exists "club_tiers_public_read" on public.club_tiers;
+create policy "club_tiers_public_read" on public.club_tiers
+  for select using (true);
+drop policy if exists "club_tiers_authenticated_write" on public.club_tiers;
+create policy "club_tiers_authenticated_write" on public.club_tiers
   for all to authenticated using (true) with check (true);
 
 -- ===== quick_match_sessions =====

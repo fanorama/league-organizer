@@ -97,6 +97,8 @@ src/
     playerStats.ts      # calculatePlayerStats(), calculateHeadToHead()
     playerAssignment.ts # Helper assign player ke tim di liga
     quickMatchStats.ts  # calculateQuickMatchStatsFromData() untuk session quick match
+    playerSkill.ts      # SkillTier (jago/sedang/pemula), computeAutoSkill(), resolvePlayerSkill()
+    balancedDraw.ts     # ClubTier (elite/mid/underdog), DRAW_WEIGHTS, pickWeightedClub() — weighted spin wheel
   test/
     setup.ts            # Vitest global setup + mock Supabase + localStorage shim
 api/
@@ -130,6 +132,7 @@ Menggunakan `HashRouter` — semua route berbasis hash (`#/`):
 | `teams` | `league_id`, `status: "pool" \| "active"`, `owner_id` (→ `players.id`), `external_id` |
 | `seasons` | `league_id`, `number`, `status`, `team_ids` (array), `owner_snapshots` (JSONB), `champion_id`, `bracket` (JSONB) |
 | `matches` | `season_id`, `matchday`, `home_team_id`, `away_team_id`, `home_score`, `away_score`, `status`, `match_type` |
+| `club_tiers` | Tier klub persisten lintas-liga — `external_id` (PK, → API Football team id), `tier: "elite" \| "mid" \| "underdog"` |
 
 **Nama kolom di DB menggunakan `snake_case`.** Konversi ke/dari `camelCase` dilakukan oleh mapper di `storage.ts` (misalnya `leagueId` ↔ `league_id`).
 
@@ -142,6 +145,18 @@ Semua entitas menggunakan `crypto.randomUUID()` via `createId()` di `storage.ts`
 - `Team.ownerId` menunjuk ke `Player.id` global (field aktif)
 - `Team.owner` (string nama) sudah **deprecated** — hanya fallback migrasi
 - `Season.ownerSnapshots` menyimpan snapshot `{ playerId, playerName }` per `teamId` saat musim dibuat — ini yang digunakan untuk kalkulasi statistik player
+- `Player.skillOverride` (opsional) menimpa skill tier otomatis; `Team.tier` menyimpan tier klub di level tim (default `mid`)
+
+## Skill Tier Pemain & Weighted Draw
+
+Spin wheel di TeamsPage mendukung **balanced draw** — peluang menarik klub dibobot berdasarkan skill pemain vs tier klub.
+
+- **Skill pemain** (`src/lib/playerSkill.ts`): `SkillTier = 'jago' | 'sedang' | 'pemula'`.
+  - `computeAutoSkill(stats)` menentukan tier dari win rate (≥0.6 → jago, ≥0.4 → sedang, sisanya pemula); butuh ≥5 game, jika kurang default `sedang`.
+  - `resolvePlayerSkill(player, stats)` memakai `player.skillOverride` jika diset, jika tidak fallback ke `computeAutoSkill`.
+- **Tier klub** (`src/lib/balancedDraw.ts`): `ClubTier = 'elite' | 'mid' | 'underdog'`, disimpan persisten di tabel `club_tiers` (keyed by `external_id`) dan tercermin di `Team.tier`.
+- **Bobot draw**: `DRAW_WEIGHTS[skill][clubTier]` — pemula condong ke elite, jago condong ke underdog (lihat tabel di `balancedDraw.ts`). `pickWeightedClub(poolTeams, skill, rng)` melakukan weighted random; `rng` di-inject agar deterministik di test.
+- Tier klub diatur via popover picker di TeamsPage; perubahan disimpan lewat `saveClubTier()` / `deleteClubTier()` di `storage.ts`.
 
 ## Autentikasi
 
@@ -215,4 +230,4 @@ Saat menambah tipe data baru:
 
 ## Commit Terakhir
 
-`bd03958` — feat(teams): ganti ImportModal dari checkbox list ke grid picker dengan tab kompetisi (#11) — 2026-05-29
+`d22ae12` — Merge pull request #13 from fanorama/fanodev/improve-player-club — 2026-05-30
