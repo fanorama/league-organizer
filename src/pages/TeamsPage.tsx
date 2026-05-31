@@ -180,18 +180,20 @@ export function TeamsPage() {
             <section>
               <h3>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.85rem', fontWeight: 400, cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={poolTeams.length > 0 && selectedPoolIds.size === poolTeams.length}
-                      onChange={toggleSelectAll}
-                      disabled={!poolTeams.length}
-                      style={{ width: 14, height: 14 }}
-                    />
-                    Select all
-                  </label>
+                  {isAdmin ? (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.85rem', fontWeight: 400, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={poolTeams.length > 0 && selectedPoolIds.size === poolTeams.length}
+                        onChange={toggleSelectAll}
+                        disabled={!poolTeams.length}
+                        style={{ width: 14, height: 14 }}
+                      />
+                      Select all
+                    </label>
+                  ) : null}
                   <span>Pool Referensi</span>
-                  {selectedPoolIds.size > 0 ? (
+                  {isAdmin && selectedPoolIds.size > 0 ? (
                     <button className="btn btn-xs danger" type="button" onClick={handleBulkDelete}>
                       Delete {selectedPoolIds.size} selected
                     </button>
@@ -206,12 +208,14 @@ export function TeamsPage() {
                       <div className="list-row pool-row" key={team.id}>
                         <div className="pool-row-main">
                           <div className="team-line">
-                            <input
-                              type="checkbox"
-                              checked={selectedPoolIds.has(team.id)}
-                              onChange={() => togglePoolSelection(team.id)}
-                              style={{ width: 14, height: 14, flexShrink: 0 }}
-                            />
+                            {isAdmin ? (
+                              <input
+                                type="checkbox"
+                                checked={selectedPoolIds.has(team.id)}
+                                onChange={() => togglePoolSelection(team.id)}
+                                style={{ width: 14, height: 14, flexShrink: 0 }}
+                              />
+                            ) : null}
                             <TeamBadge team={team} />
                             <div>
                               <div className="team-name">{team.name}</div>
