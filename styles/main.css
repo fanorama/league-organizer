@@ -854,37 +854,133 @@ tbody tr:first-child td:first-child {
 
 /* ─── SPIN WHEEL ─── */
 
-.wheel {
-  display: grid;
-  width: min(300px, 76vw);
-  aspect-ratio: 1;
-  place-items: center;
-  margin: 12px auto 22px;
-  border: 8px solid var(--panel-2);
-  border-radius: 50%;
-  background: conic-gradient(
-    var(--primary) 0deg 90deg,
-    var(--accent) 90deg 180deg,
-    #3468d6 180deg 270deg,
-    var(--success) 270deg 360deg
-  );
-  box-shadow: 0 0 0 2px var(--border-2), 0 10px 40px rgba(0, 0, 0, 0.6);
-  transition: transform 2.4s cubic-bezier(0.17, 0.84, 0.44, 1);
+.spinwheel-modal {
+  width: min(560px, 100%);
 }
 
-.wheel span {
+.wheel-stage {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 100px;
-  height: 100px;
+  width: min(380px, 80vw);
+  aspect-ratio: 1;
+  margin: 12px auto 22px;
+}
+
+.wheel-pointer {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  z-index: 10;
+  width: 0;
+  height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-top: 28px solid var(--primary);
+  transform: translateX(-50%);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.wheel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 8px solid var(--panel-2);
+  box-shadow:
+    0 0 0 2px var(--border-2),
+    0 12px 48px rgba(0, 0, 0, 0.7),
+    inset 0 0 80px rgba(0, 0, 0, 0.3);
+  background-color: var(--panel);
+  transition: none;
+}
+
+.wheel.is-spinning {
+  transition: transform 4s cubic-bezier(0.06, 0.73, 0.14, 1);
+}
+
+.wheel.is-spinning:hover {
+  cursor: pointer;
+}
+
+.wheel-skip-hint {
+  text-align: center;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  animation: wheel-hint-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes wheel-hint-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wheel.is-spinning {
+    transition: none;
+  }
+
+  .wheel-skip-hint {
+    animation: none;
+  }
+}
+
+.wheel-segment-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1px;
+  height: 1px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.wheel-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
   background: var(--panel);
-  color: var(--text);
-  text-align: center;
-  font-weight: 700;
-  padding: 12px;
-  font-size: 13px;
   border: 2px solid var(--border-2);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  z-index: 5;
+  overflow: hidden;
+}
+
+.wheel-hub-text {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.wheel-hub-logo {
+  max-width: 60px;
+  max-height: 60px;
+  object-fit: contain;
+}
+
+.wheel-hub-name {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.15;
+  padding: 4px;
 }
 
 /* ─── UTILS ─── */
