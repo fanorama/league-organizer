@@ -3,12 +3,20 @@ import {
   byCreatedAtDesc,
   getCache,
   getLeagues,
+  getPlayers,
   getQuickMatchGamesBySession,
   getQuickMatchSessions,
+  getTeams,
+  deleteClubTier,
+  getClubTier,
+  getClubTiers,
+  saveClubTier,
   saveCache,
   saveLeague,
+  savePlayer,
   saveQuickMatchGame,
   saveQuickMatchSession,
+  saveTeam,
 } from './storage';
 
 const mocks = vi.hoisted(() => ({
@@ -254,5 +262,261 @@ describe('byCreatedAtDesc', () => {
     const older = { createdAt: '2024-01-01T00:00:00Z' };
     const newer = { createdAt: '2024-06-01T00:00:00Z' };
     expect(byCreatedAtDesc(older, newer)).toBeGreaterThan(0);
+  });
+});
+
+describe('team tier mapper', () => {
+  it('maps tier from snake_case to camelCase on read', async () => {
+    const q = query({
+      order: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 't1',
+            league_id: 'l1',
+            name: 'Arsenal',
+            short_name: 'ARS',
+            badge: 'ARS',
+            logo: null,
+            status: 'pool',
+            owner_id: null,
+            tier: 'elite',
+            external_id: null,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const teams = await getTeams();
+
+    expect(teams[0].tier).toBe('elite');
+  });
+
+  it('maps null tier as null', async () => {
+    const q = query({
+      order: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 't1',
+            league_id: 'l1',
+            name: 'Arsenal',
+            short_name: 'ARS',
+            badge: 'ARS',
+            logo: null,
+            status: 'pool',
+            owner_id: null,
+            tier: null,
+            external_id: null,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const teams = await getTeams();
+
+    expect(teams[0].tier).toBeNull();
+  });
+
+  it('upserts tier as snake_case', async () => {
+    const q = query({
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: 't1',
+          league_id: 'l1',
+          name: 'Arsenal',
+          short_name: 'ARS',
+          badge: 'ARS',
+          logo: null,
+          status: 'pool',
+          owner_id: null,
+          tier: 'underdog',
+          external_id: null,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    await saveTeam({
+      leagueId: 'l1',
+      name: 'Arsenal',
+      shortName: 'ARS',
+      badge: 'ARS',
+      status: 'pool',
+      tier: 'underdog',
+      createdAt: '2026-01-01T00:00:00Z',
+    });
+
+    expect(q.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ tier: 'underdog' }),
+    );
+  });
+});
+
+describe('player skillOverride mapper', () => {
+  it('maps skill_override from snake_case on read', async () => {
+    const q = query({
+      order: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'p1',
+            name: 'Alice',
+            created_at: '2026-01-01T00:00:00Z',
+            skill_override: 'jago',
+          },
+        ],
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const players = await getPlayers();
+
+    expect(players[0].skillOverride).toBe('jago');
+  });
+
+  it('maps null skill_override as null', async () => {
+    const q = query({
+      order: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'p1',
+            name: 'Alice',
+            created_at: '2026-01-01T00:00:00Z',
+            skill_override: null,
+          },
+        ],
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const players = await getPlayers();
+
+    expect(players[0].skillOverride).toBeNull();
+  });
+
+  it('upserts skillOverride as skill_override', async () => {
+    const q = query({
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: 'p1',
+          name: 'Alice',
+          created_at: '2026-01-01T00:00:00Z',
+          skill_override: 'pemula',
+        },
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    await savePlayer({
+      name: 'Alice',
+      skillOverride: 'pemula',
+      createdAt: '2026-01-01T00:00:00Z',
+    });
+
+    expect(q.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ skill_override: 'pemula' }),
+    );
+  });
+});
+
+describe('club_tiers mapper', () => {
+  it('maps external_id → externalId on read', async () => {
+    const q = query({
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { external_id: '57', tier: 'elite' },
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const result = await getClubTier('57');
+
+    expect(mocks.from).toHaveBeenCalledWith('club_tiers');
+    expect(q.eq).toHaveBeenCalledWith('external_id', '57');
+    expect(result).toEqual({ externalId: '57', tier: 'elite' });
+  });
+
+  it('returns null when club tier not found', async () => {
+    const q = query({
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const result = await getClubTier('999');
+
+    expect(result).toBeNull();
+  });
+
+  it('upserts camelCase → snake_case on save', async () => {
+    const q = query({
+      single: vi.fn().mockResolvedValue({
+        data: { external_id: '57', tier: 'underdog' },
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const result = await saveClubTier({ externalId: '57', tier: 'underdog' });
+
+    expect(mocks.from).toHaveBeenCalledWith('club_tiers');
+    expect(q.upsert).toHaveBeenCalledWith({ external_id: '57', tier: 'underdog' });
+    expect(result).toEqual({ externalId: '57', tier: 'underdog' });
+  });
+
+  it('deletes a club tier row by external_id', async () => {
+    const q = query({
+      eq: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+    });
+    mocks.from.mockReturnValue(q);
+
+    await deleteClubTier('57');
+
+    expect(mocks.from).toHaveBeenCalledWith('club_tiers');
+    expect(q.eq).toHaveBeenCalledWith('external_id', '57');
+  });
+
+  it('batch fetches club tiers by external_ids', async () => {
+    const q = query({
+      in: vi.fn().mockResolvedValue({
+        data: [
+          { external_id: '57', tier: 'elite' },
+          { external_id: '65', tier: 'underdog' },
+        ],
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const results = await getClubTiers(['57', '65']);
+
+    expect(mocks.from).toHaveBeenCalledWith('club_tiers');
+    expect(q.select).toHaveBeenCalledWith('*');
+    expect(q.in).toHaveBeenCalledWith('external_id', ['57', '65']);
+    expect(results).toEqual([
+      { externalId: '57', tier: 'elite' },
+      { externalId: '65', tier: 'underdog' },
+    ]);
+  });
+
+  it('returns empty array when batch input is empty', async () => {
+    const q = query({});
+    mocks.from.mockReturnValue(q);
+
+    const results = await getClubTiers([]);
+
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(results).toEqual([]);
   });
 });

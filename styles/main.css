@@ -254,7 +254,6 @@ textarea {
 
 .panel {
   min-width: 0;
-  overflow: hidden;
 }
 
 .panel-head {
@@ -402,6 +401,94 @@ textarea {
   gap: 12px;
 }
 
+/* ─── TIER POPOVER ─── */
+
+.tier-badge-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.tier-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tier-trigger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.tier-chevron {
+  font-size: 9px;
+  opacity: 0.55;
+  transition: transform 150ms ease;
+}
+
+.tier-badge-wrapper:has(.tier-popover) .tier-chevron {
+  transform: rotate(180deg);
+}
+
+.tier-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 100;
+  min-width: 156px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  padding: 4px;
+  animation: tier-popover-in 120ms ease-out;
+}
+
+@keyframes tier-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.tier-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.tier-option:hover {
+  background: var(--hover);
+}
+
+.tier-option:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.tier-option-badge {
+  pointer-events: none;
+}
+
+.tier-check {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* ─── BADGES ─── */
 
 .badge {
@@ -437,6 +524,27 @@ textarea {
   color: #ff8a9e;
   background: var(--danger-bg);
   border-color: rgba(224, 48, 80, 0.25);
+}
+
+.badge.skill-jago {
+  color: #ffd07a;
+  background: var(--warning-bg);
+  border-color: rgba(240, 180, 41, 0.25);
+  cursor: pointer;
+}
+
+.badge.skill-sedang {
+  color: var(--primary);
+  background: rgba(240, 180, 41, 0.06);
+  border-color: rgba(240, 180, 41, 0.15);
+  cursor: pointer;
+}
+
+.badge.skill-pemula {
+  color: #68e8b0;
+  background: var(--success-bg);
+  border-color: rgba(38, 169, 108, 0.25);
+  cursor: pointer;
 }
 
 /* ─── TEAM ELEMENTS ─── */
@@ -1685,11 +1793,12 @@ tbody tr:first-child td:first-child {
     display: contents;
   }
 
-  .pool-actions .badge {
+  .pool-actions .tier-badge-wrapper {
     grid-column: 2;
     grid-row: 1;
     justify-self: end;
     margin-top: 6px;
+    position: relative;
   }
 
   .pool-actions .btn {
@@ -1725,11 +1834,11 @@ tbody tr:first-child td:first-child {
     min-width: 92px;
   }
 
-  .pool-row:has(.pool-actions .btn.danger) .pool-actions .badge {
+  .pool-row:has(.pool-actions .btn.danger) .pool-actions .tier-badge-wrapper {
     width: fit-content;
   }
 
-  .pool-row:not(:has(.pool-actions .btn.danger)) .pool-actions .badge {
+  .pool-row:not(:has(.pool-actions .btn.danger)) .pool-actions .tier-badge-wrapper {
     grid-column: 2;
   }
 

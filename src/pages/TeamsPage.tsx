@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Badge } from '../components/Badge';
 import { ImportClubGrid } from '../components/ImportClubGrid';
@@ -7,8 +7,8 @@ import { SpinWheel } from '../components/SpinWheel';
 import { TeamBadge } from '../components/TeamBadge';
 import { COMPETITIONS, fetchClubs } from '../lib/api';
 import { canAssignPlayerToLeague, getAssignablePlayersForLeague } from '../lib/playerAssignment';
-import { saveCache } from '../lib/storage';
-import type { ClubFromApi } from '../lib/types';
+import { saveCache, saveClubTier, deleteClubTier, getClubTiers } from '../lib/storage';
+import type { ClubFromApi, Team } from '../lib/types';
 import { useAuthStore } from '../store/useAuthStore';
 import { useLeagueStore } from '../store/useLeagueStore';
 import { usePlayerStore } from '../store/usePlayerStore';
@@ -21,6 +21,7 @@ export function TeamsPage() {
   const addTeam = useTeamStore((s) => s.addTeam);
   const updateTeam = useTeamStore((s) => s.updateTeam);
   const removeTeam = useTeamStore((s) => s.removeTeam);
+  const removeTeams = useTeamStore((s) => s.removeTeams);
   const unassignTeam = useTeamStore((s) => s.unassignTeam);
   const refresh = useTeamStore((s) => s.refresh);
   const fetchTeams = useTeamStore((s) => s.fetchTeams);
@@ -34,6 +35,7 @@ export function TeamsPage() {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [showWheel, setShowWheel] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [selectedPoolIds, setSelectedPoolIds] = useState<Set<string>>(new Set());
   const currentLeagueId = leagueId || '';
   const teams = useMemo(() => allTeams.filter((team) => team.leagueId === currentLeagueId), [allTeams, currentLeagueId]);
   const activeTeams = useMemo(() => teams.filter((team) => team.status === 'active'), [teams]);
@@ -91,6 +93,29 @@ export function TeamsPage() {
   async function handleRemove(teamId: string, name: string) {
     if (!confirm(`Remove "${name}" from league?`)) return;
     await removeTeam(teamId);
+  }
+
+  function togglePoolSelection(teamId: string) {
+    setSelectedPoolIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(teamId)) next.delete(teamId);
+      else next.add(teamId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedPoolIds((prev) => {
+      if (prev.size === poolTeams.length) return new Set();
+      return new Set(poolTeams.map((t) => t.id));
+    });
+  }
+
+  async function handleBulkDelete() {
+    const count = selectedPoolIds.size;
+    if (!confirm(`Delete ${count} team${count > 1 ? 's' : ''} from pool?`)) return;
+    await removeTeams(Array.from(selectedPoolIds));
+    setSelectedPoolIds(new Set());
   }
 
   function handleOpenImport() {
@@ -153,7 +178,28 @@ export function TeamsPage() {
               )}
             </section>
             <section>
-              <h3>Pool Referensi</h3>
+              <h3>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {isAdmin ? (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.85rem', fontWeight: 400, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={poolTeams.length > 0 && selectedPoolIds.size === poolTeams.length}
+                        onChange={toggleSelectAll}
+                        disabled={!poolTeams.length}
+                        style={{ width: 14, height: 14 }}
+                      />
+                      Select all
+                    </label>
+                  ) : null}
+                  <span>Pool Referensi</span>
+                  {isAdmin && selectedPoolIds.size > 0 ? (
+                    <button className="btn btn-xs danger" type="button" onClick={handleBulkDelete}>
+                      Delete {selectedPoolIds.size} selected
+                    </button>
+                  ) : null}
+                </span>
+              </h3>
               {poolTeams.length ? (
                 <div className="list">
                   {poolTeams.map((team) => {
@@ -162,35 +208,46 @@ export function TeamsPage() {
                       <div className="list-row pool-row" key={team.id}>
                         <div className="pool-row-main">
                           <div className="team-line">
+                            {isAdmin ? (
+                              <input
+                                type="checkbox"
+                                checked={selectedPoolIds.has(team.id)}
+                                onChange={() => togglePoolSelection(team.id)}
+                                style={{ width: 14, height: 14, flexShrink: 0 }}
+                              />
+                            ) : null}
                             <TeamBadge team={team} />
                             <div>
                               <div className="team-name">{team.name}</div>
                               <div className="muted">{team.shortName}</div>
                             </div>
                           </div>
-                          <div className="pool-actions">
-                            <Badge status="pool" />
-                            {isAdmin ? (
-                              <>
-                                <button
-                                  className="btn btn-xs"
-                                  type="button"
-                                  onClick={() => {
-                                    setAssigningTeamId(isAssigning ? null : team.id);
-                                    setSelectedPlayerId('');
-                                    setNewPlayerName('');
-                                  }}
-                                >
-                                  {isAssigning ? 'Cancel' : 'Assign'}
-                                </button>
-                                <button className="btn btn-xs danger" type="button" onClick={() => handleRemove(team.id, team.name)}>
-                                  Remove
-                                </button>
-                              </>
-                            ) : null}
-                          </div>
+                          {selectedPoolIds.size === 0 ? (
+                            <div className="pool-actions">
+                              <TierBadge team={team} isAdmin={isAdmin} updateTeam={updateTeam} />
+                              <Badge status="pool" />
+                              {isAdmin ? (
+                                <>
+                                  <button
+                                    className="btn btn-xs"
+                                    type="button"
+                                    onClick={() => {
+                                      setAssigningTeamId(isAssigning ? null : team.id);
+                                      setSelectedPlayerId('');
+                                      setNewPlayerName('');
+                                    }}
+                                  >
+                                    {isAssigning ? 'Cancel' : 'Assign'}
+                                  </button>
+                                  <button className="btn btn-xs danger" type="button" onClick={() => handleRemove(team.id, team.name)}>
+                                    Remove
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </div>
-                        {isAssigning ? (
+                        {isAssigning && selectedPoolIds.size === 0 ? (
                           <form className="list" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }} onSubmit={(event) => handleAssign(event, team.id)}>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                               <div className="field" style={{ flex: 1, margin: 0 }}>
@@ -264,6 +321,85 @@ export function TeamsPage() {
   );
 }
 
+const TIER_OPTIONS: { value: 'elite' | 'mid' | 'underdog' | null; label: string; className: string }[] = [
+  { value: 'elite', label: 'Elite', className: 'danger' },
+  { value: 'mid', label: 'Mid', className: '' },
+  { value: 'underdog', label: 'Underdog', className: 'success' },
+  { value: null, label: 'None', className: '' },
+];
+
+function TierBadge({ team, isAdmin, updateTeam }: { team: Team; isAdmin: boolean; updateTeam: (t: Team) => Promise<Team> }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const tier = team.tier || 'mid';
+  const tierLabels: Record<string, string> = { elite: 'Elite', mid: 'Mid', underdog: 'Underdog' };
+  const tierClasses: Record<string, string> = { elite: 'danger', mid: '', underdog: 'success' };
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  async function selectTier(nextTier: 'elite' | 'mid' | 'underdog' | null) {
+    setOpen(false);
+    if (!isAdmin) return;
+    await updateTeam({ ...team, tier: nextTier });
+    if (team.externalId) {
+      if (nextTier) {
+        await saveClubTier({ externalId: team.externalId, tier: nextTier });
+      } else {
+        await deleteClubTier(team.externalId);
+      }
+    }
+  }
+
+  return (
+    <span className="tier-badge-wrapper" ref={ref}>
+      <span
+        className={`badge tier-trigger ${tierClasses[tier] || ''}`}
+        onClick={isAdmin ? () => setOpen(!open) : undefined}
+        title={isAdmin ? 'Klik untuk ubah tier' : undefined}
+        style={isAdmin ? { cursor: 'pointer' } : undefined}
+        role={isAdmin ? 'button' : undefined}
+        tabIndex={isAdmin ? 0 : undefined}
+        onKeyDown={isAdmin ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!open); } } : undefined}
+      >
+        {tierLabels[tier] || tier}
+        {isAdmin && <span className="tier-chevron" aria-hidden>▾</span>}
+      </span>
+      {open && (
+        <div className="tier-popover" role="menu">
+          {TIER_OPTIONS.map((opt) => (
+            <button
+              key={opt.label}
+              className={`tier-option ${opt.className}`}
+              role="menuitem"
+              type="button"
+              onClick={() => selectTier(opt.value)}
+            >
+              <span className={`badge tier-option-badge ${opt.className}`}>{opt.label}</span>
+              {opt.value === (team.tier ?? null) && (
+                <span className="tier-check" aria-label="selected">✓</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+}
+
 function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => void }) {
   const allTeams = useTeamStore((s) => s.teams);
   const addTeam = useTeamStore((s) => s.addTeam);
@@ -299,7 +435,10 @@ function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => v
   }
 
   async function handleAddSelected() {
-    await Promise.all(Array.from(selectedIds).map((id) => {
+    const ids = Array.from(selectedIds);
+    const clubTiers = await getClubTiers(ids);
+    const tierMap = new Map(clubTiers.map((ct) => [ct.externalId, ct.tier]));
+    await Promise.all(ids.map((id) => {
       const club = clubs.find((candidate) => candidate.id === id);
       if (!club) return Promise.resolve(null);
       return addTeam({
@@ -310,6 +449,7 @@ function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => v
         owner: null,
         status: 'pool',
         externalId: club.id,
+        tier: tierMap.get(club.id) ?? null,
       });
     }));
     onClose();
