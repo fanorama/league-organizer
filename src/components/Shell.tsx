@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 
 interface ShellProps {
-  active: 'leagues' | 'players' | 'quick-match';
+  active: 'leagues' | 'players' | 'quick-match' | 'clubs';
   title: string;
   actions?: ReactNode;
   children: ReactNode;
@@ -53,6 +53,11 @@ export function Shell({ active, title, actions, children }: ShellProps) {
             <Link className={active === 'quick-match' ? 'active' : ''} to="/quick-match">
               Quick Match
             </Link>
+            {isAdmin && (
+              <Link className={active === 'clubs' ? 'active' : ''} to="/clubs">
+                Clubs
+              </Link>
+            )}
           </nav>
           {isAdmin ? (
             <button className="btn btn-xs header-logout" type="button" onClick={handleLogout}>
@@ -103,6 +108,16 @@ export function Shell({ active, title, actions, children }: ShellProps) {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
             Quick Match
           </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className={`mobile-nav-link${active === 'clubs' ? ' active' : ''}`}
+              onClick={() => handleMobileNav('/clubs')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              Clubs
+            </button>
+          )}
           {isAdmin ? (
             <button type="button" className="mobile-nav-link mobile-nav-logout" onClick={handleMobileLogout}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>

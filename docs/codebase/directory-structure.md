@@ -44,6 +44,7 @@ league-organizer/
 | `#/league/:id/season/:seasonId` | Jadwal + klasemen + playoff | `SeasonPage` |
 | `#/players` | Leaderboard global player | `PlayersPage` |
 | `#/player/:id` | Profil player (stats + H2H) | `PlayerPage` |
+| `#/clubs` | Manajemen tier klub global (admin-only) | `ClubsPage` |
 | `#/quick-match` | Daftar & buat quick match session | `QuickMatchPage` |
 | `#/quick-match/:sessionId` | Detail quick match session | `QuickMatchSessionPage` |
 | `*` | Redirect ke `#/` | `<Navigate to="/" />` |
