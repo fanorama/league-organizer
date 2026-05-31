@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Shell } from '../components/Shell';
 import { calculateHeadToHeadFromData, calculatePlayerStatsFromData, type AggregatedStats, type H2HStats } from '../lib/playerStats';
+import { resolvePlayerSkill, type SkillTier } from '../lib/playerSkill';
 import { calculateQuickMatchStatsFromData } from '../lib/quickMatchStats';
+import { useAuthStore } from '../store/useAuthStore';
 import { useLeagueStore } from '../store/useLeagueStore';
 import { useMatchStore } from '../store/useMatchStore';
 import { usePlayerStore } from '../store/usePlayerStore';
@@ -12,8 +14,10 @@ import { useTeamStore } from '../store/useTeamStore';
 
 export function PlayerPage() {
   const { id } = useParams<{ id: string }>();
+  const isAdmin = useAuthStore((state) => state.isAdmin);
   const players = usePlayerStore((state) => state.players);
   const fetchPlayers = usePlayerStore((state) => state.fetchPlayers);
+  const updatePlayer = usePlayerStore((state) => state.updatePlayer);
   const leagues = useLeagueStore((state) => state.leagues);
   const fetchLeagues = useLeagueStore((state) => state.fetchLeagues);
   const teams = useTeamStore((state) => state.teams);
@@ -61,6 +65,8 @@ export function PlayerPage() {
     );
   }
 
+  const skill = resolvePlayerSkill(player, stats.totals);
+
   const opponents = players.filter((candidate) => candidate.id !== id);
   const opponent = players.find((candidate) => candidate.id === h2hOpponentId);
   const winRate = stats.totals.played > 0 ? Math.round((stats.totals.won / stats.totals.played) * 100) : 0;
@@ -78,6 +84,23 @@ export function PlayerPage() {
             <span>{stats.totals.played} matches played</span>
             {stats.totals.championships > 0 && (
               <span className="badge warning">🏆 {stats.totals.championships} Championship{stats.totals.championships > 1 ? 's' : ''}</span>
+            )}
+            {isAdmin ? (
+              <select
+                className="badge skill-tier-select"
+                value={player.skillOverride ?? 'auto'}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  updatePlayer({ ...player, skillOverride: val === 'auto' ? null : val as SkillTier });
+                }}
+              >
+                <option value="auto">Auto</option>
+                <option value="jago">Jago</option>
+                <option value="sedang">Sedang</option>
+                <option value="pemula">Pemula</option>
+              </select>
+            ) : (
+              <span className={`badge skill-${skill}`}>{skill.charAt(0).toUpperCase() + skill.slice(1)}</span>
             )}
           </div>
         </div>

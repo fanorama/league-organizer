@@ -547,6 +547,26 @@ textarea {
   cursor: pointer;
 }
 
+select.badge.skill-tier-select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 18px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%236a7090'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 5px center;
+  background-color: var(--panel-2);
+  color: var(--primary);
+  border-color: rgba(240, 180, 41, 0.25);
+}
+
+select.badge.skill-tier-select option {
+  background: var(--panel);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  text-transform: none;
+}
+
 /* ─── TEAM ELEMENTS ─── */
 
 .team-badge {
