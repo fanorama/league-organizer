@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { CacheEntry, League, Match, Player, QuickMatchGame, QuickMatchSession, Season, Team } from './types';
+import type { CacheEntry, ClubTier, League, Match, Player, QuickMatchGame, QuickMatchSession, Season, Team } from './types';
 
 type DbRow = Record<string, any>;
 
@@ -75,6 +75,20 @@ function teamToDb(team: Partial<Team>): DbRow {
     external_id: team.externalId ?? null,
     created_at: team.createdAt,
   });
+}
+
+function dbToClubTier(row: DbRow): ClubTier {
+  return {
+    externalId: row.external_id,
+    tier: row.tier,
+  };
+}
+
+function clubTierToDb(entry: ClubTier): DbRow {
+  return {
+    external_id: entry.externalId,
+    tier: entry.tier,
+  };
 }
 
 function dbToSeason(row: DbRow): Season {
@@ -272,6 +286,30 @@ export async function saveTeam(team: Omit<Team, 'id'> | Team): Promise<Team> {
 export async function deleteTeam(id: string): Promise<void> {
   const { error } = await supabase.from('teams').delete().eq('id', id);
   if (error) throw error;
+}
+
+export async function getClubTier(externalId: string): Promise<ClubTier | null> {
+  const { data, error } = await supabase.from('club_tiers').select('*').eq('external_id', externalId).maybeSingle();
+  if (error) throw error;
+  return data ? dbToClubTier(data) : null;
+}
+
+export async function saveClubTier(entry: ClubTier): Promise<ClubTier> {
+  const { data, error } = await supabase.from('club_tiers').upsert(clubTierToDb(entry)).select().single();
+  if (error) throw error;
+  return dbToClubTier(data);
+}
+
+export async function deleteClubTier(externalId: string): Promise<void> {
+  const { error } = await supabase.from('club_tiers').delete().eq('external_id', externalId);
+  if (error) throw error;
+}
+
+export async function getClubTiers(externalIds: string[]): Promise<ClubTier[]> {
+  if (!externalIds.length) return [];
+  const { data, error } = await supabase.from('club_tiers').select('*').in('external_id', externalIds);
+  if (error) throw error;
+  return (data ?? []).map(dbToClubTier);
 }
 
 export async function getSeasons(): Promise<Season[]> {

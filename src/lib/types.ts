@@ -31,6 +31,11 @@ export interface Player {
   skillOverride?: 'jago' | 'sedang' | 'pemula' | null;
 }
 
+export interface ClubTier {
+  externalId: string;
+  tier: 'elite' | 'mid' | 'underdog';
+}
+
 export interface Team {
   id: string;
   leagueId: string;

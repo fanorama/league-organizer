@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Badge } from '../components/Badge';
 import { ImportClubGrid } from '../components/ImportClubGrid';
@@ -7,7 +7,7 @@ import { SpinWheel } from '../components/SpinWheel';
 import { TeamBadge } from '../components/TeamBadge';
 import { COMPETITIONS, fetchClubs } from '../lib/api';
 import { canAssignPlayerToLeague, getAssignablePlayersForLeague } from '../lib/playerAssignment';
-import { saveCache } from '../lib/storage';
+import { saveCache, saveClubTier, deleteClubTier, getClubTiers } from '../lib/storage';
 import type { ClubFromApi, Team } from '../lib/types';
 import { useAuthStore } from '../store/useAuthStore';
 import { useLeagueStore } from '../store/useLeagueStore';
@@ -265,27 +265,81 @@ export function TeamsPage() {
   );
 }
 
+const TIER_OPTIONS: { value: 'elite' | 'mid' | 'underdog' | null; label: string; className: string }[] = [
+  { value: 'elite', label: 'Elite', className: 'danger' },
+  { value: 'mid', label: 'Mid', className: '' },
+  { value: 'underdog', label: 'Underdog', className: 'success' },
+  { value: null, label: 'None', className: '' },
+];
+
 function TierBadge({ team, isAdmin, updateTeam }: { team: Team; isAdmin: boolean; updateTeam: (t: Team) => Promise<Team> }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
   const tier = team.tier || 'mid';
   const tierLabels: Record<string, string> = { elite: 'Elite', mid: 'Mid', underdog: 'Underdog' };
   const tierClasses: Record<string, string> = { elite: 'danger', mid: '', underdog: 'success' };
 
-  function cycleTier() {
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  async function selectTier(nextTier: 'elite' | 'mid' | 'underdog' | null) {
+    setOpen(false);
     if (!isAdmin) return;
-    const cycle: (typeof team.tier)[] = ['elite', 'mid', 'underdog', null];
-    const current = team.tier ?? null;
-    const nextIndex = (cycle.indexOf(current) + 1) % cycle.length;
-    updateTeam({ ...team, tier: cycle[nextIndex] });
+    await updateTeam({ ...team, tier: nextTier });
+    if (team.externalId) {
+      if (nextTier) {
+        await saveClubTier({ externalId: team.externalId, tier: nextTier });
+      } else {
+        await deleteClubTier(team.externalId);
+      }
+    }
   }
 
   return (
-    <span
-      className={`badge ${tierClasses[tier] || ''}`}
-      onClick={cycleTier}
-      title={isAdmin ? 'Klik untuk ubah tier' : undefined}
-      style={isAdmin ? { cursor: 'pointer' } : undefined}
-    >
-      {tierLabels[tier] || tier}
+    <span className="tier-badge-wrapper" ref={ref}>
+      <span
+        className={`badge tier-trigger ${tierClasses[tier] || ''}`}
+        onClick={isAdmin ? () => setOpen(!open) : undefined}
+        title={isAdmin ? 'Klik untuk ubah tier' : undefined}
+        style={isAdmin ? { cursor: 'pointer' } : undefined}
+        role={isAdmin ? 'button' : undefined}
+        tabIndex={isAdmin ? 0 : undefined}
+        onKeyDown={isAdmin ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!open); } } : undefined}
+      >
+        {tierLabels[tier] || tier}
+        {isAdmin && <span className="tier-chevron" aria-hidden>▾</span>}
+      </span>
+      {open && (
+        <div className="tier-popover" role="menu">
+          {TIER_OPTIONS.map((opt) => (
+            <button
+              key={opt.label}
+              className={`tier-option ${opt.className}`}
+              role="menuitem"
+              type="button"
+              onClick={() => selectTier(opt.value)}
+            >
+              <span className={`badge tier-option-badge ${opt.className}`}>{opt.label}</span>
+              {opt.value === (team.tier ?? null) && (
+                <span className="tier-check" aria-label="selected">✓</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </span>
   );
 }
@@ -325,7 +379,10 @@ function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => v
   }
 
   async function handleAddSelected() {
-    await Promise.all(Array.from(selectedIds).map((id) => {
+    const ids = Array.from(selectedIds);
+    const clubTiers = await getClubTiers(ids);
+    const tierMap = new Map(clubTiers.map((ct) => [ct.externalId, ct.tier]));
+    await Promise.all(ids.map((id) => {
       const club = clubs.find((candidate) => candidate.id === id);
       if (!club) return Promise.resolve(null);
       return addTeam({
@@ -336,6 +393,7 @@ function ImportModal({ leagueId, onClose }: { leagueId: string; onClose: () => v
         owner: null,
         status: 'pool',
         externalId: club.id,
+        tier: tierMap.get(club.id) ?? null,
       });
     }));
     onClose();
