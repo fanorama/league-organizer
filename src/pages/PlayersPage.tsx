@@ -125,7 +125,7 @@ export function PlayersPage() {
         </div>
         <div className="panel-body">
           {leaderboard.length === 0 ? (
-            <div className="empty">Belum ada player.</div>
+            <div className="empty">Belum ada player. Tambah player lewat tombol + Add.</div>
           ) : (
             <table className="table">
               <thead>

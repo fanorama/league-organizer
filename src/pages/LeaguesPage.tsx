@@ -6,6 +6,7 @@ import { byCreatedAtDesc } from '../lib/storage';
 import { useLeagueStore } from '../store/useLeagueStore';
 import { useSeasonStore } from '../store/useSeasonStore';
 import { useTeamStore } from '../store/useTeamStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 export function LeaguesPage() {
   const navigate = useNavigate();
@@ -129,4 +130,3 @@ export function LeaguesPage() {
     </Shell>
   );
 }
-import { useAuthStore } from '../store/useAuthStore';

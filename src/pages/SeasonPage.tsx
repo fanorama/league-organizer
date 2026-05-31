@@ -164,7 +164,7 @@ function ScheduleTab({
     return acc;
   }, new Map<number, Match[]>());
 
-  if (!matches.length) return <div className="empty">No schedule generated.</div>;
+  if (!matches.length) return <div className="empty">Belum ada jadwal. Klik Randomize lalu Start season untuk memulai.</div>;
 
   return (
     <>
@@ -197,12 +197,24 @@ function MatchCard({
 }) {
   const [homeScore, setHomeScore] = useState(match.homeScore ?? '');
   const [awayScore, setAwayScore] = useState(match.awayScore ?? '');
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const home = teams[match.homeTeamId];
   const away = teams[match.awayTeamId];
   const canEdit = isAdmin && season.status === 'active' && match.status !== 'finished';
 
+  useEffect(() => {
+    if (!justSaved) return;
+    const timer = window.setTimeout(() => setJustSaved(false), 600);
+    return () => window.clearTimeout(timer);
+  }, [justSaved]);
+
   async function handleSave() {
+    setSaving(true);
     await updateMatch({ ...match, homeScore: Number(homeScore), awayScore: Number(awayScore), status: 'finished' });
+    setSaving(false);
+    setJustSaved(true);
+    await refreshMatches();
   }
 
   async function handleDelay() {
@@ -217,25 +229,26 @@ function MatchCard({
         <div className="score-box">
           {canEdit ? (
             <>
-              <input className="score-input" name="homeScore" type="number" min="0" value={homeScore} onChange={(event) => setHomeScore(event.target.value === '' ? '' : Number(event.target.value))} />
+              <input className="score-input" name="homeScore" type="number" min="0" value={homeScore} onChange={(event) => setHomeScore(event.target.value === '' ? '' : Number(event.target.value))} disabled={saving} />
               <span>-</span>
-              <input className="score-input" name="awayScore" type="number" min="0" value={awayScore} onChange={(event) => setAwayScore(event.target.value === '' ? '' : Number(event.target.value))} />
+              <input className="score-input" name="awayScore" type="number" min="0" value={awayScore} onChange={(event) => setAwayScore(event.target.value === '' ? '' : Number(event.target.value))} disabled={saving} />
             </>
           ) : (
-            <>
+            <span className={justSaved ? 'score-saved-pulse' : ''}>
               <span>{match.homeScore ?? ''}</span>
               <span>{match.status === 'finished' ? '-' : 'vs'}</span>
               <span>{match.awayScore ?? ''}</span>
-            </>
+            </span>
           )}
         </div>
         <TeamSummary team={away} season={season} side="away" />
       </div>
       <div className="actions">
         <Badge status={match.status} />
+        {justSaved ? <span className="badge success">✓ Saved</span> : null}
         {canEdit ? (
-          <button className="btn primary" type="button" onClick={handleSave}>
-            Save
+          <button className="btn primary" type="button" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
           </button>
         ) : null}
         {canEdit && match.status === 'scheduled' ? (
