@@ -928,19 +928,38 @@ tbody tr:first-child td:first-child {
 }
 
 .wheel-segment-label {
+  /* "Jeruji" dari pusat roda ke rim: tepi kiri batang = pusat, ujung kanan
+     menyentuh rim. transform-origin di tepi-kiri agar rotasi mengelilingi
+     pusat roda. Konten didorong ke ujung (flex-end) supaya mepet ke rim. */
   position: absolute;
-  top: 50%;
   left: 50%;
-  width: 1px;
-  height: 1px;
-  display: grid;
-  place-items: center;
-  color: rgba(255, 255, 255, 0.95);
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-  white-space: nowrap;
+  top: calc(50% - 12px);
+  height: 24px;
+  width: calc(50% - 14px);
+  transform-origin: left center;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   pointer-events: none;
+  will-change: transform;
+}
+
+.wheel-segment-text {
+  display: block;
+  white-space: nowrap;
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 0 1px rgba(0, 0, 0, 0.9);
+}
+
+.wheel-segment-logo {
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
 
 .wheel-hub {

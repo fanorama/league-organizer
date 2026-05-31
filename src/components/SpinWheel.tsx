@@ -26,6 +26,13 @@ function clubLabel(team: Team, maxLen: number): string {
   return abbr;
 }
 
+// Logo klub disimpan sebagai URL — biasanya di `badge` (hasil import), kadang
+// di `logo`. Sama seperti TeamBadge: dianggap gambar bila berpola URL/path.
+function teamLogoUrl(team: Team): string | undefined {
+  const value = team.logo || team.badge;
+  return value && /^(https?:\/\/|\/|data:)/.test(value) ? value : undefined;
+}
+
 export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
   const allTeams = useTeamStore((s) => s.teams);
   const updateTeam = useTeamStore((s) => s.updateTeam);
@@ -104,6 +111,29 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
     ? `${activeTier.charAt(0).toUpperCase() + activeTier.slice(1)} (${tierCounts[activeTier]} tersisa)`
     : '';
 
+  // Putaran pelan saat idle (belum spin, belum ada pemenang). Memakai
+  // rotationRef yang sama dengan spin asli sehingga pointer tetap akurat.
+  useEffect(() => {
+    if (!open || isSpinning || selected) return;
+    const el = wheelRef.current;
+    if (!el) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    el.style.transition = 'none';
+    let raf = 0;
+    let last = performance.now();
+    const speed = 7; // derajat per detik
+    const tick = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      rotationRef.current += speed * dt;
+      el.style.transform = `rotate(${rotationRef.current}deg)`;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [open, isSpinning, selected]);
+
   const sliceDeg = poolTeams.length > 0 ? 360 / poolTeams.length : 0;
 
   const conicGradient = useMemo(() => {
@@ -117,22 +147,28 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
 
   const segmentLabels = useMemo(() => {
     const count = poolTeams.length;
-    const maxLen = count <= 8 ? 14 : count <= 12 ? 3 : 2;
-    const fontSize = count <= 8 ? 11 : count <= 12 ? 10 : 9;
-    const radius = 148;
+    const maxLen = count <= 8 ? 16 : count <= 14 ? 12 : 9;
+    const fontSize = count <= 8 ? 13 : count <= 14 ? 11 : 9.5;
     return poolTeams.map((team, i) => {
+      // Sudut tengah segmen, diukur searah jarum jam dari posisi jam-12.
       const deg = i * sliceDeg + sliceDeg / 2;
-      const flip = deg > 90 && deg < 270;
+      // Label berupa "jeruji" dari pusat ke rim; rim ada di ujung +x batang,
+      // jadi rotasi batang = deg - 90 agar mengarah ke tengah segmen.
+      const barRotation = deg - 90;
+      // Paruh kiri (180°–360°) membuat teks terbaca terbalik → putar 180°.
+      const flip = deg > 180;
       return (
         <span
           key={team.id}
           className="wheel-segment-label"
-          style={{
-            transform: `rotate(${deg}deg) translateY(-${radius}px) rotate(${flip ? 180 - deg : -deg}deg)`,
-            fontSize: `${fontSize}px`,
-          }}
+          style={{ transform: `rotate(${barRotation}deg)` }}
         >
-          {clubLabel(team, maxLen)}
+          <span
+            className="wheel-segment-text"
+            style={{ fontSize: `${fontSize}px`, transform: flip ? 'rotate(180deg)' : undefined }}
+          >
+            {clubLabel(team, maxLen)}
+          </span>
         </span>
       );
     });
@@ -259,8 +295,8 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
             </div>
             <div className="wheel-hub">
               {selected ? (
-                selected.logo ? (
-                  <img src={selected.logo} alt={selected.name} className="wheel-hub-logo" />
+                teamLogoUrl(selected) ? (
+                  <img src={teamLogoUrl(selected)} alt={selected.name} className="wheel-hub-logo" />
                 ) : (
                   <span className="wheel-hub-name">{selected.shortName || selected.name}</span>
                 )
