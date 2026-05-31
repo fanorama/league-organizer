@@ -8,6 +8,10 @@ function createResponse() {
   };
 }
 
+beforeEach(() => {
+  delete process.env.FOOTBALL_API_KEY;
+});
+
 afterEach(() => {
   delete process.env.FOOTBALL_API_KEY;
   vi.restoreAllMocks();
