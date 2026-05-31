@@ -120,6 +120,7 @@ Menggunakan `HashRouter` — semua route berbasis hash (`#/`):
 | `#/league/:id/season/:seasonId` | Jadwal + klasemen + playoff |
 | `#/players` | Leaderboard global player |
 | `#/player/:id` | Profil player (stats + H2H) |
+| `#/clubs` | Manajemen tier klub global (admin-only) |
 | `#/quick-match` | Daftar & buat quick match session |
 | `#/quick-match/:sessionId` | Detail quick match session |
 
