@@ -21,6 +21,7 @@ export function TeamsPage() {
   const addTeam = useTeamStore((s) => s.addTeam);
   const updateTeam = useTeamStore((s) => s.updateTeam);
   const removeTeam = useTeamStore((s) => s.removeTeam);
+  const removeTeams = useTeamStore((s) => s.removeTeams);
   const unassignTeam = useTeamStore((s) => s.unassignTeam);
   const refresh = useTeamStore((s) => s.refresh);
   const fetchTeams = useTeamStore((s) => s.fetchTeams);
@@ -34,6 +35,7 @@ export function TeamsPage() {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [showWheel, setShowWheel] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [selectedPoolIds, setSelectedPoolIds] = useState<Set<string>>(new Set());
   const currentLeagueId = leagueId || '';
   const teams = useMemo(() => allTeams.filter((team) => team.leagueId === currentLeagueId), [allTeams, currentLeagueId]);
   const activeTeams = useMemo(() => teams.filter((team) => team.status === 'active'), [teams]);
@@ -91,6 +93,29 @@ export function TeamsPage() {
   async function handleRemove(teamId: string, name: string) {
     if (!confirm(`Remove "${name}" from league?`)) return;
     await removeTeam(teamId);
+  }
+
+  function togglePoolSelection(teamId: string) {
+    setSelectedPoolIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(teamId)) next.delete(teamId);
+      else next.add(teamId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedPoolIds((prev) => {
+      if (prev.size === poolTeams.length) return new Set();
+      return new Set(poolTeams.map((t) => t.id));
+    });
+  }
+
+  async function handleBulkDelete() {
+    const count = selectedPoolIds.size;
+    if (!confirm(`Delete ${count} team${count > 1 ? 's' : ''} from pool?`)) return;
+    await removeTeams(Array.from(selectedPoolIds));
+    setSelectedPoolIds(new Set());
   }
 
   function handleOpenImport() {
@@ -153,7 +178,26 @@ export function TeamsPage() {
               )}
             </section>
             <section>
-              <h3>Pool Referensi</h3>
+              <h3>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.85rem', fontWeight: 400, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={poolTeams.length > 0 && selectedPoolIds.size === poolTeams.length}
+                      onChange={toggleSelectAll}
+                      disabled={!poolTeams.length}
+                      style={{ width: 14, height: 14 }}
+                    />
+                    Select all
+                  </label>
+                  <span>Pool Referensi</span>
+                  {selectedPoolIds.size > 0 ? (
+                    <button className="btn btn-xs danger" type="button" onClick={handleBulkDelete}>
+                      Delete {selectedPoolIds.size} selected
+                    </button>
+                  ) : null}
+                </span>
+              </h3>
               {poolTeams.length ? (
                 <div className="list">
                   {poolTeams.map((team) => {
@@ -162,36 +206,44 @@ export function TeamsPage() {
                       <div className="list-row pool-row" key={team.id}>
                         <div className="pool-row-main">
                           <div className="team-line">
+                            <input
+                              type="checkbox"
+                              checked={selectedPoolIds.has(team.id)}
+                              onChange={() => togglePoolSelection(team.id)}
+                              style={{ width: 14, height: 14, flexShrink: 0 }}
+                            />
                             <TeamBadge team={team} />
                             <div>
                               <div className="team-name">{team.name}</div>
                               <div className="muted">{team.shortName}</div>
                             </div>
                           </div>
-                          <div className="pool-actions">
-                            <TierBadge team={team} isAdmin={isAdmin} updateTeam={updateTeam} />
-                            <Badge status="pool" />
-                            {isAdmin ? (
-                              <>
-                                <button
-                                  className="btn btn-xs"
-                                  type="button"
-                                  onClick={() => {
-                                    setAssigningTeamId(isAssigning ? null : team.id);
-                                    setSelectedPlayerId('');
-                                    setNewPlayerName('');
-                                  }}
-                                >
-                                  {isAssigning ? 'Cancel' : 'Assign'}
-                                </button>
-                                <button className="btn btn-xs danger" type="button" onClick={() => handleRemove(team.id, team.name)}>
-                                  Remove
-                                </button>
-                              </>
-                            ) : null}
-                          </div>
+                          {selectedPoolIds.size === 0 ? (
+                            <div className="pool-actions">
+                              <TierBadge team={team} isAdmin={isAdmin} updateTeam={updateTeam} />
+                              <Badge status="pool" />
+                              {isAdmin ? (
+                                <>
+                                  <button
+                                    className="btn btn-xs"
+                                    type="button"
+                                    onClick={() => {
+                                      setAssigningTeamId(isAssigning ? null : team.id);
+                                      setSelectedPlayerId('');
+                                      setNewPlayerName('');
+                                    }}
+                                  >
+                                    {isAssigning ? 'Cancel' : 'Assign'}
+                                  </button>
+                                  <button className="btn btn-xs danger" type="button" onClick={() => handleRemove(team.id, team.name)}>
+                                    Remove
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </div>
-                        {isAssigning ? (
+                        {isAssigning && selectedPoolIds.size === 0 ? (
                           <form className="list" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }} onSubmit={(event) => handleAssign(event, team.id)}>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                               <div className="field" style={{ flex: 1, margin: 0 }}>

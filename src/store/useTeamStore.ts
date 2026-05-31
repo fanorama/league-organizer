@@ -8,6 +8,7 @@ interface TeamStore {
   addTeam: (data: Omit<Team, 'id'>) => Promise<Team>;
   updateTeam: (team: Team) => Promise<Team>;
   removeTeam: (id: string) => Promise<void>;
+  removeTeams: (ids: string[]) => Promise<void>;
   unassignTeam: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -33,6 +34,13 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
 
   removeTeam: async (id) => {
     await deleteTeam(id);
+    set({ teams: await getTeams() });
+  },
+
+  removeTeams: async (ids) => {
+    for (const id of ids) {
+      await deleteTeam(id);
+    }
     set({ teams: await getTeams() });
   },
 

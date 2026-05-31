@@ -40,4 +40,29 @@ describe('useTeamStore', () => {
     expect(storage.saveTeam).toHaveBeenCalledWith({ ...team, status: 'pool', owner: null, ownerId: null });
     expect(useTeamStore.getState().teams[0].status).toBe('pool');
   });
+
+  it('removes multiple teams and refreshes once', async () => {
+    const teams: Team[] = [
+      { id: 't1', leagueId: 'l1', name: 'A', status: 'pool' },
+      { id: 't2', leagueId: 'l1', name: 'B', status: 'pool' },
+      { id: 't3', leagueId: 'l1', name: 'C', status: 'active', ownerId: 'p1' },
+    ];
+    useTeamStore.setState({ teams });
+    vi.mocked(storage.deleteTeam).mockResolvedValue(undefined);
+    vi.mocked(storage.getTeams).mockResolvedValue([teams[2]]);
+
+    await useTeamStore.getState().removeTeams(['t1', 't2']);
+
+    expect(storage.deleteTeam).toHaveBeenCalledTimes(2);
+    expect(storage.deleteTeam).toHaveBeenCalledWith('t1');
+    expect(storage.deleteTeam).toHaveBeenCalledWith('t2');
+    expect(useTeamStore.getState().teams).toEqual([teams[2]]);
+  });
+
+  it('removeTeams handles empty array gracefully', async () => {
+    await useTeamStore.getState().removeTeams([]);
+
+    expect(storage.deleteTeam).not.toHaveBeenCalled();
+    expect(storage.getTeams).toHaveBeenCalledOnce();
+  });
 });
