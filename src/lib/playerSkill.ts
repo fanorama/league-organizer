@@ -1,7 +1,7 @@
 import type { Player } from './types';
 import type { AggregatedStats } from './playerStats';
 
-export type SkillTier = 'jago' | 'sedang' | 'pemula';
+export type SkillTier = 'super' | 'jago' | 'sedang' | 'pemula';
 
 export const SKILL_THRESHOLDS = {
   jagoMinWinRate: 0.6,

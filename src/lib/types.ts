@@ -28,7 +28,7 @@ export interface Player {
   id: string;
   name: string;
   createdAt: string;
-  skillOverride?: 'jago' | 'sedang' | 'pemula' | null;
+  skillOverride?: 'super' | 'jago' | 'sedang' | 'pemula' | null;
 }
 
 export interface ClubTier {

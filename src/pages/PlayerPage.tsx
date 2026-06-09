@@ -95,6 +95,7 @@ export function PlayerPage() {
                 }}
               >
                 <option value="auto">Auto</option>
+                <option value="super">Super</option>
                 <option value="jago">Jago</option>
                 <option value="sedang">Sedang</option>
                 <option value="pemula">Pemula</option>

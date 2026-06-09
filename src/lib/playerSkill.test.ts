@@ -49,6 +49,10 @@ describe('resolvePlayerSkill', () => {
     expect(resolvePlayerSkill(player({ skillOverride: 'pemula' }), stats({ played: 10, won: 10 }))).toBe('pemula');
   });
 
+  it('uses super override (override-only tier)', () => {
+    expect(resolvePlayerSkill(player({ skillOverride: 'super' }), stats({ played: 10, won: 5 }))).toBe('super');
+  });
+
   it('falls back to auto when override is null', () => {
     expect(resolvePlayerSkill(player({ skillOverride: null }), stats({ played: 10, won: 8 }))).toBe('jago');
   });

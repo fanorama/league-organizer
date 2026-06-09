@@ -4,12 +4,13 @@ import type { SkillTier } from './playerSkill';
 export type ClubTier = 'elite' | 'mid' | 'underdog';
 
 export const DRAW_WEIGHTS: Record<SkillTier, Record<ClubTier, number>> = {
-  jago: { elite: 1, mid: 3, underdog: 6 },
-  sedang: { elite: 3, mid: 5, underdog: 3 },
-  pemula: { elite: 6, mid: 3, underdog: 1 },
+  super: { elite: 1, mid: 19, underdog: 80 },
+  jago: { elite: 3, mid: 7, underdog: 10 },
+  sedang: { elite: 2, mid: 10, underdog: 2 },
+  pemula: { elite: 16, mid: 3, underdog: 1 },
 };
 
-export const DRAW_ORDER: SkillTier[] = ['pemula', 'sedang', 'jago'];
+export const DRAW_ORDER: SkillTier[] = ['super', 'jago', 'sedang', 'pemula'];
 
 function resolveClubTier(team: Team): ClubTier {
   return (team.tier || 'mid') as ClubTier;

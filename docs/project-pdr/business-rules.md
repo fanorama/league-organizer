@@ -45,4 +45,4 @@ Aturan domain yang ditegakkan kode. Langgar ini = data tidak konsisten.
 
 ## Fitur Terencana (Belum di Kode)
 
-- **Tier Klub & Balanced Draw** — menambah `Team.tier` (elite/mid/underdog) dan `Player.skillOverride`, plus weighted draw + urutan spin dipaksa (Pemula → Sedang → Jago) di SpinWheel liga. Quick Match tidak terdampak. Spec lengkap: `docs/superpowers/specs/2026-05-30-tier-klub-balanced-draw-design.md`; plan: `docs/plans/260530-1546-tier-klub-balanced-draw/`.
+- **Tier Klub & Balanced Draw** — menambah `Team.tier` (elite/mid/underdog) dan `Player.skillOverride`, plus weighted draw + urutan spin dipaksa **kuat-duluan (Super → Jago → Sedang → Pemula)** di SpinWheel liga. Tier `super` ditetapkan **hanya via override manual** admin (`computeAutoSkill` tetap maksimum `jago`). Rasional kuat-duluan: underdog adalah handicap langka; bila pemain kuat menarik belakangan jatahnya habis dan ia terdampar di klub elite — dengan menarik lebih dulu tiap tier mendarat dekat target bobotnya. Quick Match tidak terdampak. Spec lengkap: `docs/superpowers/specs/2026-05-30-tier-klub-balanced-draw-design.md`; plan: `docs/plans/260530-1546-tier-klub-balanced-draw/`.

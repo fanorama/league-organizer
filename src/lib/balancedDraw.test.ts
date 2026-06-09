@@ -18,23 +18,27 @@ function player(overrides: Partial<Player> = {}): Player {
 
 describe('DRAW_WEIGHTS', () => {
   it('has weights for all skill tiers and club tiers', () => {
-    expect(DRAW_WEIGHTS.jago.elite).toBe(1);
-    expect(DRAW_WEIGHTS.jago.mid).toBe(3);
-    expect(DRAW_WEIGHTS.jago.underdog).toBe(6);
+    expect(DRAW_WEIGHTS.super.elite).toBe(1);
+    expect(DRAW_WEIGHTS.super.mid).toBe(19);
+    expect(DRAW_WEIGHTS.super.underdog).toBe(80);
 
-    expect(DRAW_WEIGHTS.sedang.elite).toBe(3);
-    expect(DRAW_WEIGHTS.sedang.mid).toBe(5);
-    expect(DRAW_WEIGHTS.sedang.underdog).toBe(3);
+    expect(DRAW_WEIGHTS.jago.elite).toBe(3);
+    expect(DRAW_WEIGHTS.jago.mid).toBe(7);
+    expect(DRAW_WEIGHTS.jago.underdog).toBe(10);
 
-    expect(DRAW_WEIGHTS.pemula.elite).toBe(6);
+    expect(DRAW_WEIGHTS.sedang.elite).toBe(2);
+    expect(DRAW_WEIGHTS.sedang.mid).toBe(10);
+    expect(DRAW_WEIGHTS.sedang.underdog).toBe(2);
+
+    expect(DRAW_WEIGHTS.pemula.elite).toBe(16);
     expect(DRAW_WEIGHTS.pemula.mid).toBe(3);
     expect(DRAW_WEIGHTS.pemula.underdog).toBe(1);
   });
 });
 
 describe('DRAW_ORDER', () => {
-  it('starts with pemula, then sedang, then jago', () => {
-    expect(DRAW_ORDER).toEqual(['pemula', 'sedang', 'jago']);
+  it('starts with the strongest tier: super, then jago, sedang, pemula', () => {
+    expect(DRAW_ORDER).toEqual(['super', 'jago', 'sedang', 'pemula']);
   });
 });
 
@@ -58,7 +62,7 @@ describe('pickWeightedClub', () => {
   it('treats null tier as mid', () => {
     const elite = team({ id: 'e', tier: 'elite' });
     const nullTier = team({ id: 'n', tier: null });
-    // jago: elite=1, mid=3 → nullTier treated as mid, weight=3
+    // jago: elite=3, mid=7 → nullTier treated as mid, weight=7
     // rng=0 means pick first that accumulates enough weight
     const result = pickWeightedClub([elite, nullTier], 'jago', () => 0);
     expect(result).toBe(elite);
@@ -67,7 +71,7 @@ describe('pickWeightedClub', () => {
   it('picks elite club when rng is very low for jago vs pemula', () => {
     const elite = team({ id: 'e', tier: 'elite' });
     const underdog = team({ id: 'u', tier: 'underdog' });
-    // jago: elite=1, underdog=6 → total=7, first team (elite) wins with rng * 7 < 1
+    // jago: elite=3, underdog=10 → total=13, first team (elite) wins with rng * 13 < 3
     const result = pickWeightedClub([elite, underdog], 'jago', () => 0.001);
     expect(result).toBe(elite);
   });
@@ -75,7 +79,7 @@ describe('pickWeightedClub', () => {
   it('picks underdog club when rng is high for jago', () => {
     const elite = team({ id: 'e', tier: 'elite' });
     const underdog = team({ id: 'u', tier: 'underdog' });
-    // jago: elite=1, underdog=6 → total=7, underdog wins with rng * 7 >= 1
+    // jago: elite=3, underdog=10 → total=13, underdog wins with rng * 13 >= 3
     const result = pickWeightedClub([elite, underdog], 'jago', () => 0.9);
     expect(result).toBe(underdog);
   });
@@ -83,7 +87,7 @@ describe('pickWeightedClub', () => {
   it('pemula gets elite club with high probability (edge rng)', () => {
     const elite = team({ id: 'e', tier: 'elite' });
     const underdog = team({ id: 'u', tier: 'underdog' });
-    // pemula: elite=6, underdog=1 → total=7, elite wins with rng * 7 < 6
+    // pemula: elite=16, underdog=1 → total=17, elite wins with rng * 17 < 16
     const result = pickWeightedClub([elite, underdog], 'pemula', () => 0.001);
     expect(result).toBe(elite);
   });
@@ -107,28 +111,38 @@ describe('getActiveDrawTier', () => {
     expect(getActiveDrawTier([])).toBeNull();
   });
 
-  it('returns pemula first', () => {
+  it('returns super first (strongest tier)', () => {
+    const players = [
+      { player: player({ id: 'p1' }), skill: 'jago' as const },
+      { player: player({ id: 'p2' }), skill: 'pemula' as const },
+      { player: player({ id: 'p3' }), skill: 'super' as const },
+      { player: player({ id: 'p4' }), skill: 'sedang' as const },
+    ];
+    expect(getActiveDrawTier(players)).toBe('super');
+  });
+
+  it('returns jago when no super', () => {
     const players = [
       { player: player({ id: 'p1' }), skill: 'jago' as const },
       { player: player({ id: 'p2' }), skill: 'pemula' as const },
       { player: player({ id: 'p3' }), skill: 'sedang' as const },
     ];
-    expect(getActiveDrawTier(players)).toBe('pemula');
+    expect(getActiveDrawTier(players)).toBe('jago');
   });
 
-  it('returns sedang when no pemula', () => {
+  it('returns sedang when no super or jago', () => {
     const players = [
-      { player: player({ id: 'p1' }), skill: 'jago' as const },
-      { player: player({ id: 'p2' }), skill: 'sedang' as const },
+      { player: player({ id: 'p1' }), skill: 'sedang' as const },
+      { player: player({ id: 'p2' }), skill: 'pemula' as const },
     ];
     expect(getActiveDrawTier(players)).toBe('sedang');
   });
 
-  it('returns jago when only jago left', () => {
+  it('returns pemula when only pemula left', () => {
     const players = [
-      { player: player({ id: 'p1' }), skill: 'jago' as const },
+      { player: player({ id: 'p1' }), skill: 'pemula' as const },
     ];
-    expect(getActiveDrawTier(players)).toBe('jago');
+    expect(getActiveDrawTier(players)).toBe('pemula');
   });
 
   it('skips empty tier', () => {
