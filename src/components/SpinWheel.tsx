@@ -3,7 +3,7 @@ import { useMatchStore } from '../store/useMatchStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useSeasonStore } from '../store/useSeasonStore';
 import { useTeamStore } from '../store/useTeamStore';
-import { getActiveDrawTier, pickWeightedClub, type PlayerWithSkill } from '../lib/balancedDraw';
+import { DRAW_ORDER, pickWeightedClub, type PlayerWithSkill } from '../lib/balancedDraw';
 import { canAssignPlayerToLeague, getAssignablePlayersForLeague } from '../lib/playerAssignment';
 import { resolvePlayerSkill } from '../lib/playerSkill';
 import { calculatePlayerStatsFromData } from '../lib/playerStats';
@@ -75,28 +75,19 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
     }));
   }, [open, assignablePlayers, allTeams, seasons, matches]);
 
-  const activeTier = useMemo(() => {
-    if (!open) return null;
-    return getActiveDrawTier(playerSkills);
-  }, [open, playerSkills]);
-
-  useEffect(() => {
-    setSelectedPlayerId('');
-    setNewPlayerName('');
-    setSelected(null);
-  }, [activeTier]);
-
-  const activeTierPlayers = useMemo(() => {
-    if (!activeTier) return [];
-    return playerSkills.filter((ps) => ps.skill === activeTier);
-  }, [playerSkills, activeTier]);
+  // Semua pemain ditampilkan sekaligus, tetapi diurutkan sesuai skill —
+  // tier kuat lebih dulu (DRAW_ORDER). Tidak lagi dipaksa satu tier per spin.
+  const sortedPlayers = useMemo(() => {
+    const rank = (skill: PlayerWithSkill['skill']) => DRAW_ORDER.indexOf(skill);
+    return [...playerSkills].sort((a, b) => rank(a.skill) - rank(b.skill));
+  }, [playerSkills]);
 
   const selectedPlayer = useMemo(() => {
     return playerSkills.find((ps) => ps.player.id === selectedPlayerId);
   }, [playerSkills, selectedPlayerId]);
 
-  const selectedSkill = selectedPlayer?.skill ?? null;
-  const showAddNew = activeTier === 'sedang';
+  // Pemain baru belum punya statistik → default tier `sedang`.
+  const selectedSkill = selectedPlayerId === '__new__' ? 'sedang' : selectedPlayer?.skill ?? null;
 
   // Putaran pelan saat idle (belum spin, belum ada pemenang). Memakai
   // rotationRef yang sama dengan spin asli sehingga pointer tetap akurat.
@@ -295,7 +286,7 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
                   </button>
                 </div>
               </form>
-            ) : !activeTier ? (
+            ) : !sortedPlayers.length ? (
               <div className="empty">Semua pemain sudah kebagian klub.</div>
             ) : !poolTeams.length ? (
               <div className="empty">Klub pool habis.</div>
@@ -309,12 +300,12 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
                     required
                   >
                     <option value="">-- Pilih player --</option>
-                    {activeTierPlayers.map((ps) => (
+                    {sortedPlayers.map((ps) => (
                       <option key={ps.player.id} value={ps.player.id}>
                         {ps.player.name}
                       </option>
                     ))}
-                    {showAddNew ? <option value="__new__">+ Tambah player baru</option> : null}
+                    <option value="__new__">+ Tambah player baru</option>
                   </select>
                 </div>
                 {selectedPlayerId === '__new__' ? (
