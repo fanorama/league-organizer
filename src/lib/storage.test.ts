@@ -3,6 +3,7 @@ import {
   byCreatedAtDesc,
   getCache,
   getLeagues,
+  getMatchesByTeamId,
   getPlayers,
   getQuickMatchGamesBySession,
   getQuickMatchSessions,
@@ -517,6 +518,67 @@ describe('club_tiers mapper', () => {
     const results = await getClubTiers([]);
 
     expect(mocks.from).not.toHaveBeenCalled();
+    expect(results).toEqual([]);
+  });
+});
+
+describe('getMatchesByTeamId', () => {
+  it('mengembalikan match yang melibatkan team sebagai home atau away', async () => {
+    const q = query({
+      or: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'm1',
+            season_id: 's1',
+            matchday: 1,
+            home_team_id: 't1',
+            away_team_id: 't2',
+            home_score: null,
+            away_score: null,
+            status: 'scheduled',
+            match_type: 'league',
+            original_matchday: null,
+            scheduled_date: null,
+            bracket_slot: null,
+          },
+          {
+            id: 'm2',
+            season_id: 's2',
+            matchday: 2,
+            home_team_id: 't3',
+            away_team_id: 't1',
+            home_score: 2,
+            away_score: 1,
+            status: 'finished',
+            match_type: 'league',
+            original_matchday: null,
+            scheduled_date: null,
+            bracket_slot: null,
+          },
+        ],
+        error: null,
+      }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const results = await getMatchesByTeamId('t1');
+
+    expect(mocks.from).toHaveBeenCalledWith('matches');
+    expect(q.select).toHaveBeenCalledWith('*');
+    expect(q.or).toHaveBeenCalledWith('home_team_id.eq.t1,away_team_id.eq.t1');
+    expect(results).toHaveLength(2);
+    expect(results[0].id).toBe('m1');
+    expect(results[1].id).toBe('m2');
+  });
+
+  it('mengembalikan array kosong jika team tidak punya riwayat', async () => {
+    const q = query({
+      or: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+    mocks.from.mockReturnValue(q);
+
+    const results = await getMatchesByTeamId('t-null');
+
     expect(results).toEqual([]);
   });
 });

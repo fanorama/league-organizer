@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
+import type { DropResult } from '@hello-pangea/dnd';
 import { Link, useParams } from 'react-router-dom';
 import { Badge } from '../components/Badge';
 import { ImportClubGrid } from '../components/ImportClubGrid';
@@ -6,7 +8,6 @@ import { Shell } from '../components/Shell';
 import { SpinWheel } from '../components/SpinWheel';
 import { TeamBadge } from '../components/TeamBadge';
 import { COMPETITIONS, fetchClubs } from '../lib/api';
-import { canAssignPlayerToLeague, getAssignablePlayersForLeague } from '../lib/playerAssignment';
 import { saveCache, saveClubTier, deleteClubTier, getClubTiers } from '../lib/storage';
 import type { ClubFromApi, Team } from '../lib/types';
 import { useAuthStore } from '../store/useAuthStore';
@@ -18,21 +19,17 @@ export function TeamsPage() {
   const { id: leagueId } = useParams<{ id: string }>();
   const league = useLeagueStore((s) => s.leagues.find((item) => item.id === leagueId));
   const allTeams = useTeamStore((s) => s.teams);
-  const addTeam = useTeamStore((s) => s.addTeam);
   const updateTeam = useTeamStore((s) => s.updateTeam);
   const removeTeam = useTeamStore((s) => s.removeTeam);
   const removeTeams = useTeamStore((s) => s.removeTeams);
   const unassignTeam = useTeamStore((s) => s.unassignTeam);
+  const reorderTeams = useTeamStore((s) => s.reorderTeams);
   const refresh = useTeamStore((s) => s.refresh);
   const fetchTeams = useTeamStore((s) => s.fetchTeams);
   const players = usePlayerStore((s) => s.players);
-  const addPlayer = usePlayerStore((s) => s.addPlayer);
   const fetchPlayers = usePlayerStore((s) => s.fetchPlayers);
   const fetchLeagues = useLeagueStore((s) => s.fetchLeagues);
   const isAdmin = useAuthStore((s) => s.isAdmin);
-  const [assigningTeamId, setAssigningTeamId] = useState<string | null>(null);
-  const [selectedPlayerId, setSelectedPlayerId] = useState('');
-  const [newPlayerName, setNewPlayerName] = useState('');
   const [showWheel, setShowWheel] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [selectedPoolIds, setSelectedPoolIds] = useState<Set<string>>(new Set());
@@ -40,7 +37,7 @@ export function TeamsPage() {
   const teams = useMemo(() => allTeams.filter((team) => team.leagueId === currentLeagueId), [allTeams, currentLeagueId]);
   const activeTeams = useMemo(() => teams.filter((team) => team.status === 'active'), [teams]);
   const poolTeams = useMemo(() => teams.filter((team) => (team.status || 'pool') === 'pool'), [teams]);
-  const assignablePlayers = useMemo(() => getAssignablePlayersForLeague(players, allTeams, currentLeagueId), [players, allTeams, currentLeagueId]);
+  const readyTeams = useMemo(() => teams.filter((team) => team.status === 'ready'), [teams]);
 
   useEffect(() => {
     fetchLeagues();
@@ -56,43 +53,12 @@ export function TeamsPage() {
     );
   }
 
-  async function handleAddTeam(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const name = String(data.get('name')).trim();
-    const shortName = String(data.get('shortName')).trim();
-    await addTeam({
-      leagueId: currentLeagueId,
-      name,
-      shortName: (shortName || name.slice(0, 3)).toUpperCase(),
-      badge: String(data.get('badge')).trim() || (shortName || name.slice(0, 3)).toUpperCase(),
-      owner: null,
-      status: 'pool',
-      externalId: null,
-    });
-    event.currentTarget.reset();
-  }
-
-  async function handleAssign(event: React.FormEvent<HTMLFormElement>, teamId: string) {
-    event.preventDefault();
-    const team = teams.find((candidate) => candidate.id === teamId);
-    if (!team) return;
-    const trimmedNewPlayerName = newPlayerName.trim();
-    if (selectedPlayerId === '__new__' && !trimmedNewPlayerName) return;
-    if (selectedPlayerId !== '__new__' && !canAssignPlayerToLeague(selectedPlayerId, allTeams, currentLeagueId)) return;
-    const player = selectedPlayerId === '__new__'
-      ? await addPlayer({ name: trimmedNewPlayerName, createdAt: new Date().toISOString() })
-      : assignablePlayers.find((candidate) => candidate.id === selectedPlayerId);
-    if (!player) return;
-    await updateTeam({ ...team, ownerId: player.id, owner: player.name, status: 'active' });
-    setAssigningTeamId(null);
-    setSelectedPlayerId('');
-    setNewPlayerName('');
-  }
-
   async function handleRemove(teamId: string, name: string) {
     if (!confirm(`Remove "${name}" from league?`)) return;
-    await removeTeam(teamId);
+    const removed = await removeTeam(teamId);
+    if (!removed) {
+      alert(`Tim ini memiliki riwayat pertandingan dan tidak dapat dihapus.`);
+    }
   }
 
   function togglePoolSelection(teamId: string) {
@@ -114,8 +80,16 @@ export function TeamsPage() {
   async function handleBulkDelete() {
     const count = selectedPoolIds.size;
     if (!confirm(`Delete ${count} team${count > 1 ? 's' : ''} from pool?`)) return;
-    await removeTeams(Array.from(selectedPoolIds));
+    const blocked = await removeTeams(Array.from(selectedPoolIds));
     setSelectedPoolIds(new Set());
+    if (blocked.length > 0) {
+      alert(`${blocked.length} tim memiliki riwayat pertandingan dan tidak dapat dihapus.`);
+    }
+  }
+
+  function handleMoveToWheels(team: Team) {
+    // Pindah ke Wheels, ditaruh di akhir daftar.
+    reorderTeams([{ ...team, status: 'ready', sortOrder: readyTeams.length }]);
   }
 
   function handleOpenImport() {
@@ -126,15 +100,40 @@ export function TeamsPage() {
     saveCache({});
   }
 
+  function onDragEnd(result: DropResult) {
+    const { source, destination } = result;
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    const listFor = (droppableId: string) => (droppableId === 'pools' ? poolTeams : readyTeams);
+    const statusFor = (droppableId: string): Team['status'] => (droppableId === 'pools' ? 'pool' : 'ready');
+    // Beri ulang sortOrder berurutan 0..n untuk satu grup.
+    const reindex = (list: Team[]) => list.map((team, index) => ({ ...team, sortOrder: index }));
+
+    const sourceList = Array.from(listFor(source.droppableId));
+    const [moved] = sourceList.splice(source.index, 1);
+    if (!moved) return;
+
+    if (source.droppableId === destination.droppableId) {
+      sourceList.splice(destination.index, 0, moved);
+      reorderTeams(reindex(sourceList));
+      return;
+    }
+
+    const destList = Array.from(listFor(destination.droppableId));
+    destList.splice(destination.index, 0, { ...moved, status: statusFor(destination.droppableId) });
+    reorderTeams([...reindex(sourceList), ...reindex(destList)]);
+  }
+
   return (
     <Shell active="leagues" title={`Teams - ${league.name}`} actions={<Link className="btn" to={`/league/${league.id}`}>Back</Link>}>
-      <div className="two-col">
+      <div>
         <section className="panel">
           <div className="panel-head">
             <h2>Teams</h2>
             {isAdmin ? (
               <div className="actions">
-                <button id="wheelButton" className="btn" type="button" disabled={!poolTeams.length} onClick={() => setShowWheel(true)}>
+                <button id="wheelButton" className="btn" type="button" disabled={!readyTeams.length} onClick={() => setShowWheel(true)}>
                   Spin wheel
                 </button>
                 <button id="importButton" className="btn" type="button" onClick={handleOpenImport}>
@@ -192,7 +191,7 @@ export function TeamsPage() {
                       Select all
                     </label>
                   ) : null}
-                  <span>Pool Referensi</span>
+                  <span>Pools & Wheels</span>
                   {isAdmin && selectedPoolIds.size > 0 ? (
                     <button className="btn btn-xs danger" type="button" onClick={handleBulkDelete}>
                       Delete {selectedPoolIds.size} selected
@@ -200,120 +199,102 @@ export function TeamsPage() {
                   ) : null}
                 </span>
               </h3>
-              {poolTeams.length ? (
-                <div className="list">
-                  {poolTeams.map((team) => {
-                    const isAssigning = assigningTeamId === team.id;
-                    return (
-                      <div className="list-row pool-row" key={team.id}>
-                        <div className="pool-row-main">
-                          <div className="team-line">
-                            {isAdmin ? (
-                              <input
-                                type="checkbox"
-                                checked={selectedPoolIds.has(team.id)}
-                                onChange={() => togglePoolSelection(team.id)}
-                                style={{ width: 14, height: 14, flexShrink: 0 }}
-                              />
-                            ) : null}
-                            <TeamBadge team={team} />
-                            <div>
-                              <div className="team-name">{team.name}</div>
-                              <div className="muted">{team.shortName}</div>
-                            </div>
-                          </div>
-                          {selectedPoolIds.size === 0 ? (
-                            <div className="pool-actions">
-                              <TierBadge team={team} isAdmin={isAdmin} updateTeam={updateTeam} />
-                              <Badge status="pool" />
-                              {isAdmin ? (
-                                <>
-                                  <button
-                                    className="btn btn-xs"
-                                    type="button"
-                                    onClick={() => {
-                                      setAssigningTeamId(isAssigning ? null : team.id);
-                                      setSelectedPlayerId('');
-                                      setNewPlayerName('');
-                                    }}
-                                  >
-                                    {isAssigning ? 'Cancel' : 'Assign'}
-                                  </button>
-                                  <button className="btn btn-xs danger" type="button" onClick={() => handleRemove(team.id, team.name)}>
-                                    Remove
-                                  </button>
-                                </>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                        {isAssigning && selectedPoolIds.size === 0 ? (
-                          <form className="list" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }} onSubmit={(event) => handleAssign(event, team.id)}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                              <div className="field" style={{ flex: 1, margin: 0 }}>
-                                <label>Owner</label>
-                                <select value={selectedPlayerId} onChange={(event) => setSelectedPlayerId(event.target.value)} required>
-                                  <option value="">-- Pilih player --</option>
-                                  {assignablePlayers.map((player) => (
-                                    <option key={player.id} value={player.id}>
-                                      {player.name}
-                                    </option>
-                                  ))}
-                                  <option value="__new__">+ Tambah player baru</option>
-                                </select>
-                              </div>
-                              {selectedPlayerId === '__new__' ? (
-                                <div className="field" style={{ flex: 1, margin: 0 }}>
-                                  <label>Nama player baru</label>
-                                  <input
-                                    value={newPlayerName}
-                                    onChange={(event) => setNewPlayerName(event.target.value)}
-                                    required
-                                    placeholder="Nama player"
-                                    autoFocus
-                                  />
+              <DragDropContext onDragEnd={onDragEnd}>
+                <div className="pools-wheels-grid">
+                  <Droppable droppableId="pools">
+                    {(provided, snapshot) => (
+                      <div ref={provided.innerRef} {...provided.droppableProps} className={`drop-zone${snapshot.isDraggingOver ? ' is-dragging-over' : ''}`}>
+                        <div className="drop-zone-head">Pools ({poolTeams.length})</div>
+                        <div className="list">
+                          {poolTeams.map((team, index) => (
+                            <Draggable key={team.id} draggableId={team.id} index={index} isDragDisabled={!isAdmin}>
+                              {(prov, snap) => (
+                                <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps} className={`list-row pool-row${snap.isDragging ? ' is-dragging' : ''}`}>
+                                  <div className="pool-row-main">
+                                    <div className="team-line">
+                                      {isAdmin ? (
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedPoolIds.has(team.id)}
+                                          onChange={() => togglePoolSelection(team.id)}
+                                          onClick={(e) => e.stopPropagation()}
+                                          style={{ width: 14, height: 14, flexShrink: 0 }}
+                                        />
+                                      ) : null}
+                                      <TeamBadge team={team} />
+                                      <div>
+                                        <div className="team-name">{team.name}</div>
+                                        <div className="muted">{team.shortName}</div>
+                                      </div>
+                                    </div>
+                                    <div className="pool-actions">
+                                      <TierBadge team={team} isAdmin={isAdmin} updateTeam={updateTeam} />
+                                      <Badge status="pool" />
+                                      {isAdmin ? (
+                                        <button className="btn btn-xs danger" type="button" onClick={() => handleRemove(team.id, team.name)}>
+                                          Remove
+                                        </button>
+                                      ) : null}
+                                      {isAdmin ? (
+                                        <button
+                                          className="btn btn-xs move-to-wheels"
+                                          type="button"
+                                          title="Pindahkan ke Wheels"
+                                          aria-label="Pindahkan ke Wheels"
+                                          onClick={() => handleMoveToWheels(team)}
+                                        >
+                                          →
+                                        </button>
+                                      ) : null}
+                                    </div>
+                                  </div>
                                 </div>
-                              ) : null}
-                              <button className="btn primary btn-xs" type="submit" style={{ marginBottom: 1 }}>
-                                Assign
-                              </button>
-                            </div>
-                          </form>
-                        ) : null}
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                          {!poolTeams.length && <div className="empty">Kosong</div>}
+                        </div>
                       </div>
-                    );
-                  })}
+                    )}
+                  </Droppable>
+                  <Droppable droppableId="wheels">
+                    {(provided, snapshot) => (
+                      <div ref={provided.innerRef} {...provided.droppableProps} className={`drop-zone${snapshot.isDraggingOver ? ' is-dragging-over' : ''}`}>
+                        <div className="drop-zone-head">Wheels ({readyTeams.length})</div>
+                        <div className="list">
+                          {readyTeams.map((team, index) => (
+                            <Draggable key={team.id} draggableId={team.id} index={index} isDragDisabled={!isAdmin}>
+                              {(prov, snap) => (
+                                <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps} className={`list-row pool-row${snap.isDragging ? ' is-dragging' : ''}`}>
+                                  <div className="pool-row-main">
+                                    <div className="team-line">
+                                      <TeamBadge team={team} />
+                                      <div>
+                                        <div className="team-name">{team.name}</div>
+                                        <div className="muted">{team.shortName}</div>
+                                      </div>
+                                    </div>
+                                    <div className="pool-actions">
+                                      <TierBadge team={team} isAdmin={isAdmin} updateTeam={updateTeam} />
+                                      <Badge status="ready" />
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                          {!readyTeams.length && <div className="empty">Kosong</div>}
+                        </div>
+                      </div>
+                    )}
+                  </Droppable>
                 </div>
-              ) : (
-                <div className="empty">No pool teams. Add teams manually or import clubs.</div>
-              )}
+              </DragDropContext>
             </section>
           </div>
         </section>
-        {isAdmin ? (
-          <section className="card">
-            <h2>Add team</h2>
-            <form id="teamForm" className="list" onSubmit={handleAddTeam}>
-            <div className="field">
-              <label>Name</label>
-              <input name="name" required placeholder="Arsenal" />
-            </div>
-            <div className="form-grid">
-              <div className="field">
-                <label>Badge</label>
-                <input name="badge" placeholder="ARS" />
-              </div>
-              <div className="field">
-                <label>Short name</label>
-                <input name="shortName" maxLength={3} placeholder="ARS" />
-              </div>
-            </div>
-            <button className="btn primary" type="submit">
-              Add team
-            </button>
-            </form>
-          </section>
-        ) : null}
       </div>
       {isAdmin ? <SpinWheel leagueId={currentLeagueId} open={showWheel} onClose={() => setShowWheel(false)} onDone={refresh} /> : null}
       {isAdmin && showImport ? <ImportModal leagueId={currentLeagueId} onClose={() => setShowImport(false)} /> : null}

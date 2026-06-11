@@ -10,6 +10,7 @@ const team: Team = { id: 't1', leagueId: 'l1', name: 'FC Test', status: 'active'
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(storage.getTeams).mockResolvedValue([]);
+  vi.mocked(storage.getMatchesByTeamId).mockResolvedValue([]);
   useTeamStore.setState({ teams: [] });
 });
 
@@ -59,10 +60,69 @@ describe('useTeamStore', () => {
     expect(useTeamStore.getState().teams).toEqual([teams[2]]);
   });
 
+  it('does not delete a team that has match history', async () => {
+    useTeamStore.setState({ teams: [team] });
+    vi.mocked(storage.getMatchesByTeamId).mockResolvedValue([{ id: 'm1' } as never]);
+
+    const removed = await useTeamStore.getState().removeTeam('t1');
+
+    expect(removed).toBe(false);
+    expect(storage.deleteTeam).not.toHaveBeenCalled();
+  });
+
+  it('removeTeams skips teams with match history and returns blocked ids', async () => {
+    const teams: Team[] = [
+      { id: 't1', leagueId: 'l1', name: 'A', status: 'pool' },
+      { id: 't2', leagueId: 'l1', name: 'B', status: 'pool' },
+    ];
+    useTeamStore.setState({ teams });
+    vi.mocked(storage.getMatchesByTeamId).mockImplementation(async (id) =>
+      id === 't1' ? [{ id: 'm1' } as never] : [],
+    );
+
+    const blocked = await useTeamStore.getState().removeTeams(['t1', 't2']);
+
+    expect(blocked).toEqual(['t1']);
+    expect(storage.deleteTeam).toHaveBeenCalledTimes(1);
+    expect(storage.deleteTeam).toHaveBeenCalledWith('t2');
+  });
+
   it('removeTeams handles empty array gracefully', async () => {
     await useTeamStore.getState().removeTeams([]);
 
     expect(storage.deleteTeam).not.toHaveBeenCalled();
     expect(storage.getTeams).toHaveBeenCalledOnce();
+  });
+
+  it('marks a pool team as ready', async () => {
+    const poolTeam: Team = { id: 't1', leagueId: 'l1', name: 'FC Test', status: 'pool' };
+    useTeamStore.setState({ teams: [poolTeam] });
+    vi.mocked(storage.saveTeam).mockResolvedValue({ ...poolTeam, status: 'ready' });
+    vi.mocked(storage.getTeams).mockResolvedValue([{ ...poolTeam, status: 'ready' }]);
+
+    await useTeamStore.getState().markReady('t1');
+
+    expect(storage.saveTeam).toHaveBeenCalledWith({ ...poolTeam, status: 'ready' });
+    expect(useTeamStore.getState().teams[0].status).toBe('ready');
+  });
+
+  it('marks a ready team back to pool', async () => {
+    const readyTeam: Team = { id: 't1', leagueId: 'l1', name: 'FC Test', status: 'ready' };
+    useTeamStore.setState({ teams: [readyTeam] });
+    vi.mocked(storage.saveTeam).mockResolvedValue({ ...readyTeam, status: 'pool' });
+    vi.mocked(storage.getTeams).mockResolvedValue([{ ...readyTeam, status: 'pool' }]);
+
+    await useTeamStore.getState().markPool('t1');
+
+    expect(storage.saveTeam).toHaveBeenCalledWith({ ...readyTeam, status: 'pool' });
+    expect(useTeamStore.getState().teams[0].status).toBe('pool');
+  });
+
+  it('markReady is a no-op if team is not found', async () => {
+    useTeamStore.setState({ teams: [] });
+
+    await useTeamStore.getState().markReady('nonexistent');
+
+    expect(storage.saveTeam).not.toHaveBeenCalled();
   });
 });

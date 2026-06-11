@@ -45,9 +45,10 @@ export interface Team {
   logo?: string;
   owner?: string | null; // DEPRECATED — retained for migration fallback
   ownerId?: string | null; // points to Player.id global
-  status: 'pool' | 'active';
+  status: 'pool' | 'ready' | 'active';
   tier?: 'elite' | 'mid' | 'underdog' | null;
   externalId?: string | null;
+  sortOrder?: number | null;
   createdAt?: string;
 }
 

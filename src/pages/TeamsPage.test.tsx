@@ -2,13 +2,19 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { getCache, saveCache } from '../lib/storage';
-import type { League } from '../lib/types';
+import { getCache, getMatchesByTeamId, saveCache } from '../lib/storage';
+import type { League, Team } from '../lib/types';
 import { useAuthStore } from '../store/useAuthStore';
 import { useLeagueStore } from '../store/useLeagueStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useTeamStore } from '../store/useTeamStore';
 import { TeamsPage } from './TeamsPage';
+
+vi.mock('@hello-pangea/dnd', () => ({
+  DragDropContext: ({ children, onDragEnd }: { children: React.ReactNode; onDragEnd?: (...args: any[]) => void }) => children,
+  Draggable: ({ children }: { children: (provided: any, snapshot: any) => React.ReactNode }) => children({ innerRef: null, draggableProps: {}, dragHandleProps: {} }, { isDragging: false }),
+  Droppable: ({ children }: { children: (provided: any, snapshot: any) => React.ReactNode }) => children({ innerRef: null, droppableProps: {}, placeholder: null }, { isDraggingOver: false }),
+}));
 
 const league = vi.hoisted<League>(() => ({
   id: 'league-1',
@@ -24,6 +30,7 @@ vi.mock('../lib/storage', async () => {
     getLeagues: vi.fn().mockResolvedValue([league]),
     getTeams: vi.fn().mockResolvedValue([]),
     getPlayers: vi.fn().mockResolvedValue([]),
+    getMatchesByTeamId: vi.fn().mockResolvedValue([]),
   };
 });
 
@@ -63,5 +70,26 @@ describe('TeamsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Refresh cache' }));
 
     expect(getCache()).toEqual({});
+  });
+
+  it('blocks deletion of team with match history', async () => {
+    const poolTeam: Team = { id: 't1', leagueId: 'league-1', name: 'Arsenal', status: 'pool', shortName: 'ARS', badge: 'ARS' };
+    const { getTeams } = await import('../lib/storage');
+    vi.mocked(getTeams).mockResolvedValue([poolTeam]);
+    vi.mocked(getMatchesByTeamId).mockResolvedValue([{ id: 'm1' } as any]);
+    useTeamStore.setState({ teams: [poolTeam] });
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderTeamsPage();
+
+    const removeBtn = await screen.findByRole('button', { name: 'Remove' });
+    await userEvent.click(removeBtn);
+
+    await vi.waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('riwayat pertandingan'));
+    });
+    alertSpy.mockRestore();
+    confirmSpy.mockRestore();
   });
 });

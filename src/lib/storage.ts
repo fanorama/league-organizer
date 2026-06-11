@@ -57,6 +57,7 @@ function dbToTeam(row: DbRow): Team {
     ownerId: row.owner_id ?? null,
     tier: row.tier ?? null,
     externalId: row.external_id ?? null,
+    sortOrder: row.sort_order ?? null,
     createdAt: row.created_at,
   };
 }
@@ -73,8 +74,20 @@ function teamToDb(team: Partial<Team>): DbRow {
     owner_id: team.ownerId ?? null,
     tier: team.tier ?? null,
     external_id: team.externalId ?? null,
+    sort_order: team.sortOrder ?? null,
     created_at: team.createdAt,
   });
+}
+
+/**
+ * Urutkan tim berdasarkan sort_order (nulls di akhir) dengan created_at sebagai
+ * pemecah seri. Diterapkan di sisi klien agar query Supabase tetap satu order().
+ */
+function bySortOrder(a: Team, b: Team): number {
+  const ao = a.sortOrder ?? Number.POSITIVE_INFINITY;
+  const bo = b.sortOrder ?? Number.POSITIVE_INFINITY;
+  if (ao !== bo) return ao - bo;
+  return (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
 }
 
 function dbToClubTier(row: DbRow): ClubTier {
@@ -262,13 +275,13 @@ export async function deletePlayer(id: string): Promise<void> {
 export async function getTeams(): Promise<Team[]> {
   const { data, error } = await supabase.from('teams').select('*').order('created_at', { ascending: true });
   if (error) throw error;
-  return (data ?? []).map(dbToTeam);
+  return (data ?? []).map(dbToTeam).sort(bySortOrder);
 }
 
 export async function getTeamsByLeague(leagueId: string): Promise<Team[]> {
   const { data, error } = await supabase.from('teams').select('*').eq('league_id', leagueId).order('created_at', { ascending: true });
   if (error) throw error;
-  return (data ?? []).map(dbToTeam);
+  return (data ?? []).map(dbToTeam).sort(bySortOrder);
 }
 
 export async function getTeamById(id: string): Promise<Team | null> {
@@ -285,6 +298,13 @@ export async function saveTeam(team: Omit<Team, 'id'> | Team): Promise<Team> {
 
 export async function deleteTeam(id: string): Promise<void> {
   const { error } = await supabase.from('teams').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/** Bulk upsert — dipakai saat menyimpan ulang urutan (sort_order) banyak tim. */
+export async function saveTeams(teams: Team[]): Promise<void> {
+  if (!teams.length) return;
+  const { error } = await supabase.from('teams').upsert(teams.map(teamToDb));
   if (error) throw error;
 }
 
@@ -380,6 +400,15 @@ export async function deleteMatch(id: string): Promise<void> {
 export async function deleteMatchesBySeason(seasonId: string): Promise<void> {
   const { error } = await supabase.from('matches').delete().eq('season_id', seasonId);
   if (error) throw error;
+}
+
+export async function getMatchesByTeamId(teamId: string): Promise<Match[]> {
+  const { data, error } = await supabase
+    .from('matches')
+    .select('*')
+    .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`);
+  if (error) throw error;
+  return (data ?? []).map(dbToMatch);
 }
 
 export async function getQuickMatchSessions(): Promise<QuickMatchSession[]> {

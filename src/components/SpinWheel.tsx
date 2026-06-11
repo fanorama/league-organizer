@@ -64,7 +64,7 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
   }, [open, fetchSeasons, fetchMatches]);
 
   const teams = useMemo(() => allTeams.filter((t) => t.leagueId === leagueId), [allTeams, leagueId]);
-  const poolTeams = useMemo(() => teams.filter((t) => (t.status || 'pool') === 'pool'), [teams]);
+  const readyTeams = useMemo(() => teams.filter((t) => (t.status || 'pool') === 'ready'), [teams]);
   const assignablePlayers = useMemo(() => getAssignablePlayersForLeague(players, allTeams, leagueId), [players, allTeams, leagueId]);
 
   const playerSkills = useMemo<PlayerWithSkill[]>(() => {
@@ -112,22 +112,22 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
     return () => cancelAnimationFrame(raf);
   }, [open, isSpinning, selected]);
 
-  const sliceDeg = poolTeams.length > 0 ? 360 / poolTeams.length : 0;
+  const sliceDeg = readyTeams.length > 0 ? 360 / readyTeams.length : 0;
 
   const conicGradient = useMemo(() => {
-    if (!poolTeams.length) return undefined;
-    const stops = poolTeams.map((_, i) => {
+    if (!readyTeams.length) return undefined;
+    const stops = readyTeams.map((_, i) => {
       const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length];
       return `${color} ${i * sliceDeg}deg ${(i + 1) * sliceDeg}deg`;
     });
     return `conic-gradient(${stops.join(', ')})`;
-  }, [poolTeams, sliceDeg]);
+  }, [readyTeams, sliceDeg]);
 
   const segmentLabels = useMemo(() => {
-    const count = poolTeams.length;
+    const count = readyTeams.length;
     const maxLen = count <= 8 ? 16 : count <= 14 ? 12 : 9;
     const fontSize = count <= 8 ? 13 : count <= 14 ? 11 : 9.5;
-    return poolTeams.map((team, i) => {
+    return readyTeams.map((team, i) => {
       // Sudut tengah segmen, diukur searah jarum jam dari posisi jam-12.
       const deg = i * sliceDeg + sliceDeg / 2;
       // Label berupa "jeruji" dari pusat ke rim; rim ada di ujung +x batang,
@@ -150,16 +150,16 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
         </span>
       );
     });
-  }, [poolTeams, sliceDeg]);
+  }, [readyTeams, sliceDeg]);
 
   function handleSpin() {
-    if (!poolTeams.length || !selectedSkill || isSpinning) return;
-    const winner = pickWeightedClub(poolTeams, selectedSkill);
+    if (!readyTeams.length || !selectedSkill || isSpinning) return;
+    const winner = pickWeightedClub(readyTeams, selectedSkill);
     if (!winner) return;
 
     spinWinnerRef.current = winner;
 
-    const winnerIndex = poolTeams.findIndex((t) => t.id === winner.id);
+    const winnerIndex = readyTeams.findIndex((t) => t.id === winner.id);
     const segmentCenter = (winnerIndex * sliceDeg + sliceDeg / 2) % 360;
     const currentPos = ((rotationRef.current % 360) + 360) % 360;
     const delta = ((360 - ((segmentCenter + currentPos) % 360)) % 360 + 360) % 360;
@@ -288,7 +288,7 @@ export function SpinWheel({ leagueId, open, onClose, onDone }: SpinWheelProps) {
               </form>
             ) : !sortedPlayers.length ? (
               <div className="empty">Semua pemain sudah kebagian klub.</div>
-            ) : !poolTeams.length ? (
+            ) : !readyTeams.length ? (
               <div className="empty">Klub pool habis.</div>
             ) : (
               <>
