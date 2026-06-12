@@ -42,3 +42,16 @@ Mode pertandingan cepat antar dua player, **terpisah** dari sistem liga/musim.
 3. `calculateQuickMatchStatsFromData(...)` → `QuickMatchStats` (rekap menang/seri/kalah, gol) untuk session.
 
 Data quick match disimpan di tabel Supabase `quick_match_sessions` dan `quick_match_games`.
+
+## Competition (`src/lib/competition.ts` + `useCompetitionStore`)
+
+Turnamen bergaya Piala Dunia/Euro/UCL — entitas **top-level mandiri** (sejajar liga, tanpa `league_id`). Skor antar **player**; tiap peserta memegang snapshot klub. Lifecycle: `setup → draw_clubs → group_draw → group_stage → knockout → finished`.
+
+1. **Setup** — daftarkan peserta (player global) ke `competition_participants`.
+2. **Undian klub** (`draw_clubs`) — `pickWeightedClub` (reuse engine balanced draw) memilih klub per peserta dari pool tim global; snapshot disimpan di participant (`club_*`, `club_tier`).
+3. **Undian grup** (`group_draw → group_stage`) — `assignPots` (urut kekuatan: seed → tier) lalu `drawGroupsFromPots` menyebar tiap pot ke grup berbeda (hindari collision pot-sama). Distribusi tak rata → selisih ukuran antar-grup ≤ 1. Lalu `generateGroupSchedule` (round-robin per grup via `generateRoundRobin`).
+4. **Fase grup** (`group_stage`) — input skor; `computeGroupStandings` menghitung klasemen per grup (tiebreaker Pts → GD → GF → nama). `qualifyMode`: `top1` | `top2` | `top2_plus_best_thirds`. Best-third diranking lintas-grup pakai semua hasil (`rankBestThirds`).
+5. **Knockout** (`knockout`) — `seedKnockout` membentuk bracket single-elimination. Pairing top2 bergaya 1A-2B; best-third lewat `BEST_THIRD_LOOKUP` (mis. 6 grup + 4 best-third); konfigurasi tak didukung → fallback berurutan + `warning`. Leg `1` (single) atau `2` (agregat); **final selalu 1 leg**. Agregat seri → pemenang **manual** oleh admin (`resolveTieWinner` + `advanceKnockout`).
+6. **Juara** (`finished`) — pemenang final → `champion_id`.
+
+Engine algoritmik murni (rng injectable) di `competition.ts`, teruji penuh di `competition.test.ts`. Store hanya orkestrasi + persist (tidak ada logika algoritmik).

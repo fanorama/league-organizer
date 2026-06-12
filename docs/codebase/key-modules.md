@@ -15,6 +15,7 @@ Tanggung jawab tiap modul utama, dikelompokkan per lapisan.
 | `playerStats.ts` | `calculatePlayerStats()`, `calculateHeadToHead()` (+ varian `*FromData`). Pakai `ownerSnapshots` musim. |
 | `quickMatchStats.ts` | `calculateQuickMatchStatsFromData()` untuk rekap session quick match. |
 | `playerAssignment.ts` | Helper assign player ke tim per liga (`getAssignablePlayersForLeague`, `canAssignPlayerToLeague`, dst). |
+| `competition.ts` | Engine murni turnamen Group + Knockout: `distributeToGroups`, `assignPots`, `drawGroupsFromPots`, `computeGroupStandings`, `rankBestThirds`, `generateGroupSchedule`, `seedKnockout` (+ `BEST_THIRD_LOOKUP`), `resolveTieWinner`, `advanceKnockout`, `generateKnockoutMatchesForRound`. Rng injectable, tanpa import `storage`/`supabase`, fully unit-tested. |
 
 > Pola: fungsi domain punya varian `*FromData(...)` murni (input data mentah, mudah dites) dan varian async yang mengambil data dari `storage.ts` lebih dulu.
 
@@ -30,6 +31,7 @@ Tiap store membungkus fungsi `storage.ts` lalu `set()` state baru. Tidak ada log
 | `useMatchStore` | Pertandingan |
 | `usePlayerStore` | Player global |
 | `useQuickMatchStore` | Quick match session + game |
+| `useCompetitionStore` | Competition — orkestrasi lifecycle (`createCompetition`, `loadCompetitionDetail`, `startClubDraw`, `assignClubToParticipant`, `finishClubDraw`, `runGroupDraw`, `saveGroupResult`, `startKnockout`, `saveKnockoutResult`, `resolveTie`, `finishCompetition`). Store tipis: hanya wrap `storage.ts` + helper `competition.ts`, dengan guard transisi. |
 | `useAuthStore` | Session auth + turunan `isAdmin` (tidak menyentuh storage; diisi dari `App.tsx`) |
 
 ## `src/pages/` — Halaman per Route

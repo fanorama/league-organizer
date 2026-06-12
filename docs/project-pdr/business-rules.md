@@ -32,6 +32,17 @@ Aturan domain yang ditegakkan kode. Langgar ini = data tidak konsisten.
 - Format **double-elimination** (upper + lower bracket + grand final, dengan kemungkinan reset). Konfigurasi leg per round di `PlayoffFormat`.
 - Bracket disimpan di `Season.bracket`.
 
+## Competition (Turnamen Group + Knockout)
+
+- Entitas **top-level mandiri** (sejajar liga, tanpa `league_id`). Peserta = **player** + snapshot klub; skor dihitung antar player. Lifecycle: `setup → draw_clubs → group_draw → group_stage → knockout → finished`.
+- **Undian klub** per peserta via weighted draw (`pickWeightedClub`) dari pool tim global.
+- **Distribusi grup**: `groupCount` ditentukan admin; peserta disebar berbasis pot (`assignPots` urut kekuatan, `drawGroupsFromPots` hindari collision pot-sama). Selisih ukuran antar-grup **≤ 1** (mis. 17 peserta / 4 grup → 5,4,4,4).
+- **Kualifikasi** (`qualifyMode`): `top1` | `top2` | `top2_plus_best_thirds`. Ranking best-third memakai **semua hasil grup** (Pts → GD → GF) — simplifikasi MVP, **bukan** normalisasi vs top-4 ala UEFA penuh.
+- **Pairing best-third → bracket** via tabel lookup (`BEST_THIRD_LOOKUP`, mis. 6 grup + 4 best-third). Konfigurasi di luar tabel → **fallback** penempatan berurutan + `bracket.warning`.
+- **Knockout** single-elimination. Leg `1` (single) atau `2` (agregat); **final selalu 1 leg**. Agregat seri (tanpa away-goals/penalty otomatis) → pemenang ditentukan **manual oleh admin**.
+- **Juara** = pemenang final → `champion_id`, status `finished`.
+- Non-goals MVP: third-place playoff, away-goals rule, extra time/penalty terpisah, seeding otomatis lintas-competition.
+
 ## Autentikasi & Otorisasi
 
 - Hanya admin (sesi Supabase Auth aktif, `isAdmin: true`) yang boleh write.

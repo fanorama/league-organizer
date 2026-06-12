@@ -1,6 +1,6 @@
 # Documentation Summary
 
-**League Organizer** — aplikasi web multi-liga untuk mengelola turnamen sepak bola game (skor manual): klasemen, statistik player, spin wheel pengundian klub, playoff, dan quick match.
+**League Organizer** — aplikasi web multi-liga untuk mengelola turnamen sepak bola game (skor manual): klasemen, statistik player, spin wheel pengundian klub, playoff, quick match, dan **competition** (turnamen Group + Knockout bergaya Piala Dunia/Euro/UCL).
 Stack: **React 18 + TypeScript + Vite + Zustand + React Router v6 (HashRouter)**, backend **Supabase (PostgreSQL + Auth)**, import klub dari **football-data.org** via proxy serverless, deploy di **Vercel**. Tidak ada server aplikasi custom.
 
 ## Agent Context Guide
@@ -14,7 +14,7 @@ System design, alur data, integrasi eksternal, dan deployment.
 | File | Description |
 | ---- | ----------- |
 | [architecture/system-overview.md](architecture/system-overview.md) | Lapisan UI → Store → Storage → Supabase, auth, proxy football-data.org, deployment Vercel |
-| [architecture/domain-flows.md](architecture/domain-flows.md) | Siklus hidup liga, penjadwalan & playoff, klasemen, statistik player, quick match |
+| [architecture/domain-flows.md](architecture/domain-flows.md) | Siklus hidup liga, penjadwalan & playoff, klasemen, statistik player, quick match, competition |
 
 ## Codebase
 

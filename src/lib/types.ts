@@ -152,3 +152,88 @@ export interface QuickMatchGame {
   player2Score: number;
   createdAt: string;
 }
+
+// ===== Competition (turnamen Group + Knockout, entitas top-level mandiri) =====
+
+export type CompetitionStatus =
+  | 'setup' | 'draw_clubs' | 'group_draw' | 'group_stage' | 'knockout' | 'finished';
+export type QualifyMode = 'top1' | 'top2' | 'top2_plus_best_thirds';
+
+/** Snapshot klub terpilih untuk pool undian (sumber: API football-data per liga). */
+export interface CompetitionClub {
+  externalId: string;
+  name: string;
+  logo?: string | null;
+}
+
+export interface CompetitionSettings {
+  groupCount: number;
+  participantsTarget?: number;
+  meetingsPerPair: 1 | 2;
+  qualifyMode: QualifyMode;
+  bestThirdsCount?: number;       // dipakai bila qualifyMode === 'top2_plus_best_thirds'
+  knockoutLegs: 1 | 2;            // final selalu 1 leg apapun nilainya
+  potCount: number;
+  clubPool?: CompetitionClub[];   // klub terpilih untuk wheel; kosong/undefined = pakai tim global
+}
+
+export interface GroupDef { key: string; participantIds: string[]; }
+
+// Reuse pola PlayoffSlot: satu "tie" knockout
+export interface CompetitionTie {
+  team1?: string | null;          // participantId
+  team2?: string | null;          // participantId
+  matchIds: string[];             // 1 (single) atau 2 (two-legged) leg
+  winner?: string | null;         // participantId; manual bila agregat seri
+  bye?: boolean;
+}
+
+export interface CompetitionBracket {
+  rounds: CompetitionTie[][];     // rounds[0] = babak pertama knockout
+  seeds?: string[];               // urutan participantId hasil seeding grup
+  warning?: string;               // diisi bila bracket dari fallback (lookup tak didukung)
+}
+
+export interface Competition {
+  id: string;
+  name: string;
+  description?: string;
+  status: CompetitionStatus;
+  settings: CompetitionSettings;
+  groups?: GroupDef[];
+  bracket?: CompetitionBracket;
+  championId?: string | null;     // participantId pemenang
+  createdAt: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+}
+
+export interface CompetitionParticipant {
+  id: string;
+  competitionId: string;
+  playerId: string;
+  clubExternalId?: string | null;
+  clubName?: string | null;
+  clubLogo?: string | null;
+  clubTier?: 'elite' | 'mid' | 'underdog' | null;
+  pot?: number | null;
+  groupKey?: string | null;
+  seed?: number | null;
+  createdAt?: string;
+}
+
+export interface CompetitionMatch {
+  id: string;
+  competitionId: string;
+  stage: 'group' | 'knockout';
+  groupKey?: string | null;       // diisi bila stage='group'
+  round?: number | null;          // diisi bila stage='knockout'
+  tieIndex?: number | null;       // diisi bila stage='knockout'
+  leg?: number | null;            // 1|2 bila two-legged
+  homeParticipantId?: string | null;
+  awayParticipantId?: string | null;
+  homeScore?: number | null;
+  awayScore?: number | null;
+  status: 'scheduled' | 'finished';
+  createdAt?: string;
+}

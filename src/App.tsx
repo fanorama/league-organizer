@@ -8,6 +8,8 @@ import { PlayerPage } from './pages/PlayerPage';
 import { PlayersPage } from './pages/PlayersPage';
 import { QuickMatchPage } from './pages/QuickMatchPage';
 import { ClubsPage } from './pages/ClubsPage';
+import { CompetitionsPage } from './pages/CompetitionsPage';
+import { CompetitionPage } from './pages/CompetitionPage';
 import { QuickMatchSessionPage } from './pages/QuickMatchSessionPage';
 import { SeasonPage } from './pages/SeasonPage';
 import { TeamsPage } from './pages/TeamsPage';
@@ -35,6 +37,8 @@ export default function App() {
         <Route path="/league/:id/teams" element={<TeamsPage />} />
         <Route path="/league/:id/season/:seasonId" element={<SeasonPage />} />
         <Route path="/clubs" element={<ClubsPage />} />
+        <Route path="/competitions" element={<CompetitionsPage />} />
+        <Route path="/competition/:id" element={<CompetitionPage />} />
         <Route path="/players" element={<PlayersPage />} />
         <Route path="/player/:id" element={<PlayerPage />} />
         <Route path="/quick-match" element={<QuickMatchPage />} />

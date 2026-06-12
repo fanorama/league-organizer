@@ -72,6 +72,8 @@ src/
     LoginPage.tsx       # Halaman login admin (Supabase Auth)
     QuickMatchPage.tsx          # Daftar & buat quick match session
     QuickMatchSessionPage.tsx   # Detail session: pilih klub per player, input game, stats
+    CompetitionsPage.tsx        # Daftar & buat competition (turnamen Group + Knockout)
+    CompetitionPage.tsx         # Detail competition: tab per fase (setup/undian/grup/knockout/juara)
   components/
     Shell.tsx           # Layout wrapper + navigasi + tombol Login/Logout
     Badge.tsx           # Badge komponen
@@ -87,6 +89,7 @@ src/
     usePlayerStore.ts       # Zustand store untuk player global
     useAuthStore.ts         # Zustand store untuk auth session (isAdmin)
     useQuickMatchStore.ts   # Zustand store untuk quick match session
+    useCompetitionStore.ts  # Zustand store + orkestrasi lifecycle competition
   lib/
     types.ts            # TypeScript interfaces semua entitas
     storage.ts          # CRUD Supabase + mapper camelCase↔snake_case
@@ -99,6 +102,7 @@ src/
     quickMatchStats.ts  # calculateQuickMatchStatsFromData() untuk session quick match
     playerSkill.ts      # SkillTier (jago/sedang/pemula), computeAutoSkill(), resolvePlayerSkill()
     balancedDraw.ts     # ClubTier (elite/mid/underdog), DRAW_WEIGHTS, pickWeightedClub() — weighted spin wheel
+    competition.ts      # Engine murni turnamen: distributeToGroups, assignPots, drawGroupsFromPots, computeGroupStandings, rankBestThirds, seedKnockout, advanceKnockout (rng injectable)
   test/
     setup.ts            # Vitest global setup + mock Supabase + localStorage shim
 api/
@@ -123,6 +127,8 @@ Menggunakan `HashRouter` — semua route berbasis hash (`#/`):
 | `#/clubs` | Manajemen tier klub global (admin-only) |
 | `#/quick-match` | Daftar & buat quick match session |
 | `#/quick-match/:sessionId` | Detail quick match session |
+| `#/competitions` | Daftar & buat competition |
+| `#/competition/:id` | Detail competition (tab per fase) |
 
 ## Data Model (Supabase Tables)
 
@@ -134,6 +140,9 @@ Menggunakan `HashRouter` — semua route berbasis hash (`#/`):
 | `seasons` | `league_id`, `number`, `status`, `team_ids` (array), `owner_snapshots` (JSONB), `champion_id`, `bracket` (JSONB) |
 | `matches` | `season_id`, `matchday`, `home_team_id`, `away_team_id`, `home_score`, `away_score`, `status`, `match_type` |
 | `club_tiers` | Tier klub persisten lintas-liga — `external_id` (PK, → API Football team id), `tier: "elite" \| "mid" \| "underdog"` |
+| `competitions` | Turnamen top-level mandiri — `name`, `status`, `settings` (JSONB), `groups` (JSONB), `bracket` (JSONB), `champion_id` |
+| `competition_participants` | Peserta competition — `competition_id`, `player_id`, snapshot klub (`club_external_id`/`club_name`/`club_logo`/`club_tier`), `pot`, `group_key`, `seed` |
+| `competition_matches` | Match competition — `competition_id`, `stage: "group" \| "knockout"`, `group_key`, `round`, `tie_index`, `leg`, `home_participant_id`, `away_participant_id`, skor, `status` |
 
 **Nama kolom di DB menggunakan `snake_case`.** Konversi ke/dari `camelCase` dilakukan oleh mapper di `storage.ts` (misalnya `leagueId` ↔ `league_id`).
 
@@ -187,6 +196,20 @@ Untuk entitas dengan relasi banyak (match, season), ada fungsi filter: `getMatch
 6. **Input skor** di SeasonPage → ketika semua match selesai, musim otomatis `"finished"` dan champion dicatat
 7. **(Opsional) Playoff** — jika liga mengaktifkan playoff, setelah musim selesai masuk ke fase `"playoff_setup"` → `"playoff_active"` dengan double elimination bracket
 8. **Lihat statistik** di PlayersPage (leaderboard) atau PlayerPage (profil detail + H2H antar player)
+
+### Alur Competition (turnamen Group + Knockout)
+
+Entitas **top-level mandiri** (sejajar liga, tanpa `league_id`). Lifecycle: `setup → draw_clubs → group_draw → group_stage → knockout → finished`.
+
+1. **Buat competition** di CompetitionsPage (atur `groupCount`, `meetingsPerPair`, `qualifyMode`, `knockoutLegs`, `potCount`)
+2. **Setup**: daftarkan peserta (player global) → "Mulai undian klub" (`draw_clubs`)
+3. **Undian klub** per peserta via `pickWeightedClub` (pool tim global) → "Selesai undian klub" (`group_draw`)
+4. **Undian grup**: `assignPots` + `drawGroupsFromPots` (berbasis pot, hindari collision pot-sama) → jadwal round-robin per grup (`group_stage`)
+5. **Fase grup**: input skor → klasemen via `computeGroupStandings` → "Mulai knockout" saat semua match grup selesai
+6. **Knockout** (single-elimination): `seedKnockout` (top1/top2/top2_plus_best_thirds, leg 1 atau agregat 2; **final selalu 1 leg**). Agregat seri → pemenang ditentukan **manual** oleh admin. Konfigurasi grup di luar tabel best-third → fallback berurutan + warning.
+7. **Juara**: pemenang final → `champion_id`, status `finished`
+
+Engine algoritmik murni ada di `src/lib/competition.ts` (rng injectable, fully unit-tested di `competition.test.ts`); orkestrasi lifecycle + persist di `useCompetitionStore.ts`.
 
 ## Konvensi Kode
 

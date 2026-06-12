@@ -122,6 +122,54 @@ create table if not exists public.quick_match_games (
   player2_score     integer not null default 0,
   created_at        timestamptz not null default now()
 );
+
+-- ===== competitions (turnamen Group + Knockout, top-level mandiri) =====
+create table if not exists public.competitions (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null,
+  description text,
+  status      text not null default 'setup'
+                check (status in ('setup','draw_clubs','group_draw','group_stage','knockout','finished')),
+  settings    jsonb not null default '{}'::jsonb,   -- struktur CompetitionSettings
+  groups      jsonb,                                -- GroupDef[]
+  bracket     jsonb,                                -- struktur CompetitionBracket
+  champion_id uuid,                                 -- competition_participants.id (no FK; hindari circular cascade)
+  created_at  timestamptz not null default now(),
+  started_at  timestamptz,
+  finished_at timestamptz
+);
+
+-- ===== competition_participants =====
+create table if not exists public.competition_participants (
+  id               uuid primary key default gen_random_uuid(),
+  competition_id   uuid not null references public.competitions(id) on delete cascade,
+  player_id        uuid not null references public.players(id) on delete cascade,
+  club_external_id text,
+  club_name        text,
+  club_logo        text,
+  club_tier        text check (club_tier in ('elite','mid','underdog')),
+  pot              integer,
+  group_key        text,
+  seed             integer,
+  created_at       timestamptz not null default now()
+);
+
+-- ===== competition_matches =====
+create table if not exists public.competition_matches (
+  id                  uuid primary key default gen_random_uuid(),
+  competition_id      uuid not null references public.competitions(id) on delete cascade,
+  stage               text not null check (stage in ('group','knockout')),
+  group_key           text,
+  round               integer,
+  tie_index           integer,
+  leg                 integer,
+  home_participant_id uuid,
+  away_participant_id uuid,
+  home_score          integer,
+  away_score          integer,
+  status              text not null default 'scheduled' check (status in ('scheduled','finished')),
+  created_at          timestamptz not null default now()
+);
 ```
 
 ---
@@ -138,6 +186,8 @@ create index if not exists idx_matches_season_id    on public.matches(season_id)
 create index if not exists idx_qm_sessions_player1  on public.quick_match_sessions(player1_id);
 create index if not exists idx_qm_sessions_player2  on public.quick_match_sessions(player2_id);
 create index if not exists idx_qm_games_session_id  on public.quick_match_games(session_id);
+create index if not exists idx_comp_participants_comp_id on public.competition_participants(competition_id);
+create index if not exists idx_comp_matches_comp_id      on public.competition_matches(competition_id);
 ```
 
 ---
@@ -163,6 +213,9 @@ alter table public.matches              enable row level security;
 alter table public.club_tiers           enable row level security;
 alter table public.quick_match_sessions enable row level security;
 alter table public.quick_match_games    enable row level security;
+alter table public.competitions             enable row level security;
+alter table public.competition_participants enable row level security;
+alter table public.competition_matches      enable row level security;
 ```
 
 ### 3b. Policies
@@ -230,6 +283,30 @@ create policy "qm_games_public_read" on public.quick_match_games
   for select using (true);
 drop policy if exists "qm_games_authenticated_write" on public.quick_match_games;
 create policy "qm_games_authenticated_write" on public.quick_match_games
+  for all to authenticated using (true) with check (true);
+
+-- ===== competitions =====
+drop policy if exists "competitions_public_read" on public.competitions;
+create policy "competitions_public_read" on public.competitions
+  for select using (true);
+drop policy if exists "competitions_authenticated_write" on public.competitions;
+create policy "competitions_authenticated_write" on public.competitions
+  for all to authenticated using (true) with check (true);
+
+-- ===== competition_participants =====
+drop policy if exists "comp_participants_public_read" on public.competition_participants;
+create policy "comp_participants_public_read" on public.competition_participants
+  for select using (true);
+drop policy if exists "comp_participants_authenticated_write" on public.competition_participants;
+create policy "comp_participants_authenticated_write" on public.competition_participants
+  for all to authenticated using (true) with check (true);
+
+-- ===== competition_matches =====
+drop policy if exists "comp_matches_public_read" on public.competition_matches;
+create policy "comp_matches_public_read" on public.competition_matches
+  for select using (true);
+drop policy if exists "comp_matches_authenticated_write" on public.competition_matches;
+create policy "comp_matches_authenticated_write" on public.competition_matches
   for all to authenticated using (true) with check (true);
 ```
 

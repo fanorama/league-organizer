@@ -47,6 +47,8 @@ league-organizer/
 | `#/clubs` | Manajemen tier klub global (admin-only) | `ClubsPage` |
 | `#/quick-match` | Daftar & buat quick match session | `QuickMatchPage` |
 | `#/quick-match/:sessionId` | Detail quick match session | `QuickMatchSessionPage` |
+| `#/competitions` | Daftar & buat competition | `CompetitionsPage` |
+| `#/competition/:id` | Detail competition (tab per fase) | `CompetitionPage` |
 | `*` | Redirect ke `#/` | `<Navigate to="/" />` |
 
 ## Lokasi Test

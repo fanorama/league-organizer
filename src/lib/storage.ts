@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { CacheEntry, ClubTier, League, Match, Player, QuickMatchGame, QuickMatchSession, Season, Team } from './types';
+import type { CacheEntry, ClubTier, Competition, CompetitionMatch, CompetitionParticipant, League, Match, Player, QuickMatchGame, QuickMatchSession, Season, Team } from './types';
 
 type DbRow = Record<string, any>;
 
@@ -433,6 +433,185 @@ export async function saveQuickMatchGame(game: Omit<QuickMatchGame, 'id'> | Quic
   const { data, error } = await supabase.from('quick_match_games').upsert(quickMatchGameToDb(game)).select().single();
   if (error) throw error;
   return dbToQuickMatchGame(data);
+}
+
+// ===== Competition mappers =====
+
+function dbToCompetition(row: DbRow): Competition {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? undefined,
+    status: row.status,
+    settings: row.settings,
+    groups: row.groups ?? undefined,
+    bracket: row.bracket ?? undefined,
+    championId: row.champion_id ?? null,
+    createdAt: row.created_at,
+    startedAt: row.started_at ?? null,
+    finishedAt: row.finished_at ?? null,
+  };
+}
+
+function competitionToDb(c: Partial<Competition>): DbRow {
+  return stripUndefined({
+    id: c.id,
+    name: c.name,
+    description: c.description ?? null,
+    status: c.status,
+    settings: c.settings,
+    groups: c.groups ?? null,
+    bracket: c.bracket ?? null,
+    champion_id: c.championId ?? null,
+    created_at: c.createdAt,
+    started_at: c.startedAt ?? null,
+    finished_at: c.finishedAt ?? null,
+  });
+}
+
+function dbToCompetitionParticipant(row: DbRow): CompetitionParticipant {
+  return {
+    id: row.id,
+    competitionId: row.competition_id,
+    playerId: row.player_id,
+    clubExternalId: row.club_external_id ?? null,
+    clubName: row.club_name ?? null,
+    clubLogo: row.club_logo ?? null,
+    clubTier: row.club_tier ?? null,
+    pot: row.pot ?? null,
+    groupKey: row.group_key ?? null,
+    seed: row.seed ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+function competitionParticipantToDb(p: Partial<CompetitionParticipant>): DbRow {
+  return stripUndefined({
+    id: p.id,
+    competition_id: p.competitionId,
+    player_id: p.playerId,
+    club_external_id: p.clubExternalId ?? null,
+    club_name: p.clubName ?? null,
+    club_logo: p.clubLogo ?? null,
+    club_tier: p.clubTier ?? null,
+    pot: p.pot ?? null,
+    group_key: p.groupKey ?? null,
+    seed: p.seed ?? null,
+    created_at: p.createdAt,
+  });
+}
+
+function dbToCompetitionMatch(row: DbRow): CompetitionMatch {
+  return {
+    id: row.id,
+    competitionId: row.competition_id,
+    stage: row.stage,
+    groupKey: row.group_key ?? null,
+    round: row.round ?? null,
+    tieIndex: row.tie_index ?? null,
+    leg: row.leg ?? null,
+    homeParticipantId: row.home_participant_id ?? null,
+    awayParticipantId: row.away_participant_id ?? null,
+    homeScore: row.home_score ?? null,
+    awayScore: row.away_score ?? null,
+    status: row.status,
+    createdAt: row.created_at,
+  };
+}
+
+function competitionMatchToDb(m: Partial<CompetitionMatch>): DbRow {
+  return stripUndefined({
+    id: m.id,
+    competition_id: m.competitionId,
+    stage: m.stage,
+    group_key: m.groupKey ?? null,
+    round: m.round ?? null,
+    tie_index: m.tieIndex ?? null,
+    leg: m.leg ?? null,
+    home_participant_id: m.homeParticipantId ?? null,
+    away_participant_id: m.awayParticipantId ?? null,
+    home_score: m.homeScore ?? null,
+    away_score: m.awayScore ?? null,
+    status: m.status,
+    created_at: m.createdAt,
+  });
+}
+
+// ===== Competitions CRUD =====
+
+export async function getCompetitions(): Promise<Competition[]> {
+  const { data, error } = await supabase.from('competitions').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(dbToCompetition);
+}
+
+export async function getCompetitionById(id: string): Promise<Competition | null> {
+  const { data, error } = await supabase.from('competitions').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? dbToCompetition(data) : null;
+}
+
+export async function saveCompetition(c: Omit<Competition, 'id'> | Competition): Promise<Competition> {
+  const { data, error } = await supabase.from('competitions').upsert(competitionToDb(c)).select().single();
+  if (error) throw error;
+  return dbToCompetition(data);
+}
+
+export async function deleteCompetition(id: string): Promise<void> {
+  const { error } = await supabase.from('competitions').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ===== Competition participants CRUD =====
+
+export async function getParticipantsByCompetition(competitionId: string): Promise<CompetitionParticipant[]> {
+  const { data, error } = await supabase.from('competition_participants').select('*').eq('competition_id', competitionId).order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(dbToCompetitionParticipant);
+}
+
+export async function saveParticipant(p: Omit<CompetitionParticipant, 'id'> | CompetitionParticipant): Promise<CompetitionParticipant> {
+  const { data, error } = await supabase.from('competition_participants').upsert(competitionParticipantToDb(p)).select().single();
+  if (error) throw error;
+  return dbToCompetitionParticipant(data);
+}
+
+export async function saveParticipants(list: (Omit<CompetitionParticipant, 'id'> | CompetitionParticipant)[]): Promise<CompetitionParticipant[]> {
+  if (!list.length) return [];
+  const { data, error } = await supabase.from('competition_participants').upsert(list.map(competitionParticipantToDb)).select();
+  if (error) throw error;
+  return (data ?? []).map(dbToCompetitionParticipant);
+}
+
+export async function deleteParticipant(id: string): Promise<void> {
+  const { error } = await supabase.from('competition_participants').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ===== Competition matches CRUD =====
+
+export async function getCompetitionMatchesByCompetition(competitionId: string): Promise<CompetitionMatch[]> {
+  const { data, error } = await supabase.from('competition_matches').select('*').eq('competition_id', competitionId).order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(dbToCompetitionMatch);
+}
+
+export async function saveCompetitionMatch(m: Omit<CompetitionMatch, 'id'> | CompetitionMatch): Promise<CompetitionMatch> {
+  const { data, error } = await supabase.from('competition_matches').upsert(competitionMatchToDb(m)).select().single();
+  if (error) throw error;
+  return dbToCompetitionMatch(data);
+}
+
+export async function saveCompetitionMatches(list: (Omit<CompetitionMatch, 'id'> | CompetitionMatch)[]): Promise<CompetitionMatch[]> {
+  if (!list.length) return [];
+  const { data, error } = await supabase.from('competition_matches').upsert(list.map(competitionMatchToDb)).select();
+  if (error) throw error;
+  return (data ?? []).map(dbToCompetitionMatch);
+}
+
+export async function deleteCompetitionMatchesByCompetition(competitionId: string): Promise<void> {
+  const { error } = await supabase.from('competition_matches').delete().eq('competition_id', competitionId);
+  if (error) throw error;
 }
 
 export function getCache<T = CacheEntry>(): Record<string, T> {
