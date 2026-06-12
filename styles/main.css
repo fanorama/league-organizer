@@ -3162,3 +3162,124 @@ button.club-card-body:focus-visible {
     padding: 2px 0;
   }
 }
+
+/* ─── COMPETITION GROUP DRAW ─── */
+
+.group-draw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.group-card {
+  background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.group-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-dark);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+}
+
+.group-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: linear-gradient(90deg, rgba(240, 180, 41, 0.16) 0%, rgba(240, 180, 41, 0.02) 100%);
+  border-bottom: 1px solid var(--border-2);
+}
+
+.group-card__badge {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: #1a1300;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+  box-shadow: 0 2px 8px rgba(240, 180, 41, 0.35);
+}
+
+.group-card__title {
+  flex: 1;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.group-card__count {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.group-card__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.group-card__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  transition: background 0.12s ease;
+}
+
+.group-card__row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.group-card__seed {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.group-card__logo {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.group-card__logo--empty {
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  opacity: 0.5;
+}
+
+.group-card__club {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

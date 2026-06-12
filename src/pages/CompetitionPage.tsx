@@ -660,16 +660,30 @@ function DrawTab({ competition, participants, isAdmin, guarded }: {
 
 function GroupComposition({ groups, participants }: { groups: GroupDef[]; participants: CompetitionParticipant[] }) {
   return (
-    <div className="grid">
+    <div className="group-draw-grid">
       {groups.map((g) => (
-        <div className="card" key={g.key}>
-          <h3>Grup {g.key}</h3>
-          <ul className="list">
-            {g.participantIds.map((pid) => {
+        <div className="group-card" key={g.key}>
+          <div className="group-card__head">
+            <span className="group-card__badge">{g.key}</span>
+            <span className="group-card__title">Grup {g.key}</span>
+            <span className="group-card__count">{g.participantIds.length} tim</span>
+          </div>
+          <ol className="group-card__list">
+            {g.participantIds.map((pid, i) => {
               const p = participants.find((x) => x.id === pid);
-              return <li key={pid}>{p?.clubName || pid}</li>;
+              return (
+                <li className="group-card__row" key={pid}>
+                  <span className="group-card__seed">{i + 1}</span>
+                  {p?.clubLogo ? (
+                    <img className="group-card__logo" src={p.clubLogo} alt="" loading="lazy" />
+                  ) : (
+                    <span className="group-card__logo group-card__logo--empty" aria-hidden>⚽</span>
+                  )}
+                  <span className="group-card__club">{p?.clubName || pid}</span>
+                </li>
+              );
             })}
-          </ul>
+          </ol>
         </div>
       ))}
     </div>
