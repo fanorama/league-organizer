@@ -5,7 +5,7 @@ import { CompetitionClubPoolModal } from '../components/CompetitionClubPoolModal
 import { DrawWheel, type DrawWheelHandle, type DrawWheelItem } from '../components/DrawWheel';
 import { Shell } from '../components/Shell';
 import { pickWeightedClub } from '../lib/balancedDraw';
-import { computeGroupStandings, rankBestThirds } from '../lib/competition';
+import { buildGroupMatchdays, computeGroupStandings, rankBestThirds } from '../lib/competition';
 import type { SkillTier } from '../lib/playerSkill';
 import { useAuthStore } from '../store/useAuthStore';
 import { useCompetitionStore } from '../store/useCompetitionStore';
@@ -13,15 +13,41 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { useTeamStore } from '../store/useTeamStore';
 import type { Competition, CompetitionClub, CompetitionMatch, CompetitionParticipant, CompetitionSettings, GroupDef, QualifyMode, Team } from '../lib/types';
 
-type TabName = 'setup' | 'draw' | 'group' | 'knockout' | 'champion';
+type TabName = 'setup' | 'draw' | 'schedule' | 'group' | 'knockout' | 'champion';
 
 const TAB_LABELS: Record<TabName, string> = {
   setup: 'Setup',
   draw: 'Undian',
+  schedule: 'Jadwal',
   group: 'Grup',
   knockout: 'Knockout',
   champion: 'Juara',
 };
+
+/**
+ * Susun match grup menjadi matchday (tiap matchday memuat semua grup).
+ * Pakai settings.scheduleMatchdays bila ada; selain itu bangun default dari
+ * struktur round-robin. `groupMatches` harus urutan pembuatan (createdAt).
+ */
+function getScheduleMatchdays(competition: Competition, groupMatches: CompetitionMatch[]): CompetitionMatch[][] {
+  const byId = new Map(groupMatches.map((m) => [m.id, m]));
+  const saved = competition.settings.scheduleMatchdays;
+  let dayIds: string[][];
+  if (saved?.length) {
+    dayIds = saved.map((d) => d.filter((id) => byId.has(id))).filter((d) => d.length);
+    // Match grup yang belum ada di jadwal tersimpan (mis. data lama) → matchday tambahan.
+    const seen = new Set(saved.flat());
+    const extra = groupMatches.filter((m) => !seen.has(m.id)).map((m) => m.id);
+    if (extra.length) dayIds.push(extra);
+  } else {
+    dayIds = buildGroupMatchdays(competition.groups ?? [], groupMatches);
+  }
+  // Dalam tiap matchday, urutkan laga berdasarkan grup (A→B→C…) agar rapi.
+  return dayIds.map((d) =>
+    d.map((id) => byId.get(id)!).filter(Boolean)
+      .sort((a, b) => (a.groupKey ?? '').localeCompare(b.groupKey ?? '')),
+  );
+}
 
 function defaultTab(status: Competition['status']): TabName {
   switch (status) {
@@ -118,7 +144,7 @@ export function CompetitionPage() {
     }
   }
 
-  const tabs: TabName[] = ['setup', 'draw', 'group', 'knockout', 'champion'];
+  const tabs: TabName[] = ['setup', 'draw', 'schedule', 'group', 'knockout', 'champion'];
 
   return (
     <Shell active="competitions" title={competition.name} actions={<Badge status={competition.status} />}>
@@ -142,6 +168,9 @@ export function CompetitionPage() {
       ) : null}
       {activeTab === 'draw' ? (
         <DrawTab competition={competition} participants={participants} isAdmin={isAdmin} guarded={guarded} />
+      ) : null}
+      {activeTab === 'schedule' ? (
+        <ScheduleTab competition={competition} matches={matches} isAdmin={isAdmin} guarded={guarded} participantShort={participantShort} />
       ) : null}
       {activeTab === 'group' ? (
         <GroupTab competition={competition} participants={participants} matches={matches} isAdmin={isAdmin} guarded={guarded} participantName={participantName} participantShort={participantShort} />
@@ -629,15 +658,20 @@ function DrawTab({ competition, participants, isAdmin, guarded }: {
           </>
         ) : null}
 
-        <div className="participant-chips" style={{ marginTop: 16 }}>
+        <div className="draw-result-grid">
           {participants.map((p) => (
-            <div key={p.id} className="participant-chip">
-              <span className="participant-chip__name">{playerName(p.playerId)}</span>
-              {p.clubName ? (
-                <span className="badge success">{p.clubName}</span>
-              ) : (
-                <span className="badge">—</span>
-              )}
+            <div key={p.id} className={`draw-result ${p.clubName ? 'draw-result--done' : 'draw-result--pending'}`}>
+              <div className="draw-result__crest">
+                {p.clubLogo ? (
+                  <img className="draw-result__logo" src={p.clubLogo} alt="" loading="lazy" />
+                ) : (
+                  <span className="draw-result__logo draw-result__logo--empty" aria-hidden>{p.clubName ? '⚽' : '?'}</span>
+                )}
+              </div>
+              <div className="draw-result__body">
+                <span className="draw-result__club">{p.clubName || 'Menunggu undian'}</span>
+                <span className="draw-result__manager">{playerName(p.playerId)}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -704,6 +738,101 @@ function GroupComposition({ groups, participants }: { groups: GroupDef[]; partic
   );
 }
 
+// ===== Schedule tab (urutan main fase grup: acak + kunci) =====
+
+function ScheduleTab({ competition, matches, isAdmin, guarded, participantShort }: {
+  competition: Competition;
+  matches: CompetitionMatch[];
+  isAdmin: boolean;
+  guarded: (a: () => Promise<void>) => Promise<void>;
+  participantShort: (pid: string | null | undefined) => string;
+}) {
+  const shuffleGroupSchedule = useCompetitionStore((s) => s.shuffleGroupSchedule);
+  const lockGroupSchedule = useCompetitionStore((s) => s.lockGroupSchedule);
+
+  const allGroupMatches = matches.filter((m) => m.stage === 'group');
+  const matchdays = getScheduleMatchdays(competition, allGroupMatches);
+  const locked = !!competition.settings.scheduleLocked;
+  const hasResults = allGroupMatches.some((m) => m.status === 'finished');
+  const canManage = isAdmin && !locked && !hasResults;
+
+  if (!matchdays.length) {
+    return <div className="empty">Jadwal grup belum dibuat. Selesaikan undian grup terlebih dahulu.</div>;
+  }
+
+  return (
+    <section className="card">
+      <div className="schedule-head">
+        <div>
+          <h2 style={{ margin: 0 }}>Jadwal fase grup</h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+            {locked
+              ? 'Jadwal telah dikunci dan tidak dapat diubah.'
+              : 'Tiap matchday memuat semua grup. Acak urutan, lalu kunci agar menjadi jadwal resmi.'}
+          </p>
+        </div>
+        <div className="schedule-actions">
+          {locked ? (
+            <span className="badge schedule-locked">🔒 Terkunci</span>
+          ) : isAdmin ? (
+            <>
+              <button
+                className="btn"
+                type="button"
+                disabled={!canManage}
+                onClick={() => guarded(() => shuffleGroupSchedule(competition.id))}
+              >
+                🎲 Acak jadwal
+              </button>
+              <button
+                className="btn primary"
+                type="button"
+                disabled={!canManage}
+                onClick={() => guarded(() => lockGroupSchedule(competition.id))}
+              >
+                🔒 Kunci jadwal
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      {isAdmin && !locked && hasResults ? (
+        <p className="muted" style={{ marginTop: 10, fontSize: 12, color: 'var(--warning)' }}>
+          Sudah ada hasil pertandingan — jadwal tidak bisa diacak lagi. Kunci untuk menetapkannya.
+        </p>
+      ) : null}
+
+      <div className="schedule-days">
+        {matchdays.map((day, di) => (
+          <div className="schedule-day" key={di}>
+            <div className="schedule-day__header">
+              <span className="schedule-day__title">Matchday {di + 1}</span>
+              <span className="schedule-day__count">{day.length} laga</span>
+            </div>
+            <ul className="schedule-list">
+              {day.map((m) => (
+                <li className="schedule-row" key={m.id}>
+                  <span className="schedule-row__group">{m.groupKey}</span>
+                  <span className="schedule-row__teams">
+                    <span className="schedule-row__home">{participantShort(m.homeParticipantId)}</span>
+                    {m.status === 'finished' ? (
+                      <span className="schedule-row__score">{m.homeScore} - {m.awayScore}</span>
+                    ) : (
+                      <span className="schedule-row__vs">vs</span>
+                    )}
+                    <span className="schedule-row__away">{participantShort(m.awayParticipantId)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // ===== Group tab (klasemen + input skor) =====
 
 function GroupTab({ competition, participants, matches, isAdmin, guarded, participantName, participantShort }: {
@@ -718,7 +847,7 @@ function GroupTab({ competition, participants, matches, isAdmin, guarded, partic
   const saveGroupResult = useCompetitionStore((s) => s.saveGroupResult);
   const startKnockout = useCompetitionStore((s) => s.startKnockout);
   const groups = competition.groups ?? [];
-  const groupMatches = matches.filter((m) => m.stage === 'group');
+  const groupMatches = getScheduleMatchdays(competition, matches.filter((m) => m.stage === 'group')).flat();
   const allFinished = groupMatches.length > 0 && groupMatches.every((m) => m.status === 'finished');
   const playedCount = groupMatches.filter((m) => m.status === 'finished').length;
   // Skor grup hanya bisa diedit selama fase grup; setelah knockout dimulai,

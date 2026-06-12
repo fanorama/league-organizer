@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   advanceKnockout,
   assignPots,
+  buildGroupMatchdays,
   computeGroupStandings,
   drawGroupsFromPots,
   generateGroupSchedule,
@@ -59,6 +60,9 @@ interface CompetitionStore {
   finishClubDraw: (competitionId: string) => Promise<void>;
 
   runGroupDraw: (competitionId: string, rng?: () => number) => Promise<void>;
+
+  shuffleGroupSchedule: (competitionId: string) => Promise<void>;
+  lockGroupSchedule: (competitionId: string) => Promise<void>;
 
   saveGroupResult: (matchId: string, homeScore: number, awayScore: number) => Promise<void>;
   startKnockout: (competitionId: string) => Promise<void>;
@@ -308,6 +312,46 @@ export const useCompetitionStore = create<CompetitionStore>((set, get) => ({
       status: 'group_stage',
       startedAt: competition.startedAt ?? new Date().toISOString(),
     });
+    set(await reloadDetail(competitionId));
+  },
+
+  shuffleGroupSchedule: async (competitionId) => {
+    const { competition, matches } = get();
+    if (!competition || competition.id !== competitionId) throw new Error('Competition belum dimuat.');
+    if (competition.settings.scheduleLocked) throw new Error('Jadwal sudah dikunci dan tidak bisa diacak.');
+    const groupMatches = matches.filter((m) => m.stage === 'group');
+    if (!groupMatches.length) throw new Error('Jadwal grup belum dibuat.');
+    if (groupMatches.some((m) => m.status === 'finished')) {
+      throw new Error('Tidak bisa mengacak: sudah ada hasil pertandingan grup.');
+    }
+
+    // Bangun matchday default (ronde round-robin tiap grup → matchday memuat
+    // semua grup), lalu acak: urutan matchday diundi ulang dan isi tiap
+    // matchday dikocok. Setiap matchday tetap valid (tiap tim main sekali).
+    const shuffle = <T,>(arr: T[]): T[] => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+    const idToGroup = new Map(groupMatches.map((m) => [m.id, m.groupKey ?? '']));
+    const matchdays = buildGroupMatchdays(competition.groups ?? [], groupMatches);
+    // Acak urutan matchday, tetapi rapikan isi tiap matchday per grup (A→B→C…).
+    const shuffled = shuffle(matchdays).map((md) =>
+      [...md].sort((a, b) => idToGroup.get(a)!.localeCompare(idToGroup.get(b)!)),
+    );
+    await saveCompetition({ ...competition, settings: { ...competition.settings, scheduleMatchdays: shuffled } });
+    set(await reloadDetail(competitionId));
+  },
+
+  lockGroupSchedule: async (competitionId) => {
+    const { competition, matches } = get();
+    if (!competition || competition.id !== competitionId) throw new Error('Competition belum dimuat.');
+    if (competition.settings.scheduleLocked) return;
+    if (!matches.some((m) => m.stage === 'group')) throw new Error('Jadwal grup belum dibuat.');
+    await saveCompetition({ ...competition, settings: { ...competition.settings, scheduleLocked: true } });
     set(await reloadDetail(competitionId));
   },
 

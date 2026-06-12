@@ -175,6 +175,8 @@ export interface CompetitionSettings {
   knockoutLegs: 1 | 2;            // final selalu 1 leg apapun nilainya
   potCount: number;
   clubPool?: CompetitionClub[];   // klub terpilih untuk wheel; kosong/undefined = pakai tim global
+  scheduleMatchdays?: string[][]; // jadwal fase grup per matchday (array matchId); kosong = default round-robin
+  scheduleLocked?: boolean;       // true = urutan jadwal grup dikunci permanen
 }
 
 export interface GroupDef { key: string; participantIds: string[]; }

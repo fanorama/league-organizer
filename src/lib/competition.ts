@@ -238,6 +238,58 @@ export function generateGroupSchedule(
   return matches;
 }
 
+/**
+ * Susun match grup menjadi matchday dengan distribusi seimbang ("sebar merata"):
+ * setiap matchday idealnya berisi satu laga per grup, tetapi grup yang lebih
+ * besar (mis. 5 tim) boleh menaruh laga ekstranya di matchday yang sudah ada
+ * selama tak ada tim yang main dua kali dalam matchday tersebut. Hasilnya tidak
+ * ada matchday tunggal di ekor. `groupMatches` harus urutan pembuatan.
+ */
+export function buildGroupMatchdays(
+  groups: GroupDef[],
+  groupMatches: CompetitionMatch[],
+): string[][] {
+  const byGroup = new Map<string, CompetitionMatch[]>();
+  groupMatches.forEach((m) => {
+    const key = m.groupKey ?? '';
+    if (!byGroup.has(key)) byGroup.set(key, []);
+    byGroup.get(key)!.push(m);
+  });
+
+  const counts = groups.map((g) => byGroup.get(g.key)?.length ?? 0).filter((n) => n > 0);
+  if (!counts.length) return [];
+  // Target jumlah matchday = jumlah laga grup terbesar KEDUA (grup "normal"),
+  // sehingga sisa grup terbesar terserap ke matchday yang ada, bukan jadi ekor.
+  const sorted = [...counts].sort((a, b) => b - a);
+  const targetDays = Math.max(sorted[1] ?? sorted[0], 1);
+
+  const days: string[][] = [];
+  const dayTeams: Set<string>[] = [];
+  const ensure = (n: number) => {
+    while (days.length < n) { days.push([]); dayTeams.push(new Set()); }
+  };
+  ensure(targetDays);
+
+  groups.forEach((group) => {
+    (byGroup.get(group.key) ?? []).forEach((m) => {
+      const home = m.homeParticipantId ?? '';
+      const away = m.awayParticipantId ?? '';
+      // Pilih matchday dengan laga paling sedikit yang belum memuat kedua tim.
+      let best = -1;
+      for (let d = 0; d < days.length; d += 1) {
+        if (dayTeams[d].has(home) || dayTeams[d].has(away)) continue;
+        if (best === -1 || days[d].length < days[best].length) best = d;
+      }
+      if (best === -1) { ensure(days.length + 1); best = days.length - 1; }
+      days[best].push(m.id);
+      dayTeams[best].add(home);
+      dayTeams[best].add(away);
+    });
+  });
+
+  return days.filter((md) => md.length);
+}
+
 // ===== 7. Seeding knockout + tabel best-third =====
 
 function tie(a?: string | null, b?: string | null): CompetitionTie {
