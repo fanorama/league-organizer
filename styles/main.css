@@ -3283,3 +3283,838 @@ button.club-card-body:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ─── COMPETITION GROUP STAGE TAB ─── */
+
+.group-stage-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(90deg, rgba(240, 180, 41, 0.1) 0%, rgba(240, 180, 41, 0.01) 100%);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+}
+
+.group-stage-bar__title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.group-stage-bar__meta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.group-stage-bar__track {
+  flex: 1;
+  min-width: 120px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--panel-3);
+  overflow: hidden;
+}
+
+.group-stage-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+  transition: width 0.35s ease;
+}
+
+.group-stage-layout {
+  display: grid;
+  grid-template-columns: 4fr 8fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.group-stage-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Jadwal (kolom kanan) satu kolom; tiap grup tetap section terpisah,
+   daftar laga di dalamnya disebar 2 kolom agar tidak terlalu memanjang. */
+.group-stage-col--matches .match-feed {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 8px;
+}
+
+.group-stage-card {
+  margin: 0 !important;
+}
+
+.group-stage-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.group-stage-card__title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+/* Klasemen */
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.standings-table thead th {
+  padding: 6px 6px;
+  text-align: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border-2);
+}
+
+.standings-table thead th:nth-child(2) {
+  text-align: left;
+}
+
+.standings-table tbody td {
+  padding: 7px 6px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.standings-table tbody td:nth-child(2) {
+  text-align: left;
+}
+
+.standings-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.standings-table__rank {
+  width: 28px;
+}
+
+.standings-table__row--qualified {
+  background: linear-gradient(90deg, rgba(38, 169, 108, 0.08) 0%, transparent 70%);
+}
+
+.standings-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--panel-3);
+}
+
+.standings-rank--1 {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: #1a1300;
+}
+
+.standings-rank--2 {
+  background: linear-gradient(135deg, #c7ccd6 0%, #8b93a3 100%);
+  color: #15171c;
+}
+
+.standings-club {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.standings-club__logo {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.standings-club__logo--empty {
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  opacity: 0.45;
+}
+
+.standings-club__name {
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.standings-club__badge {
+  flex: none;
+  font-size: 10px;
+  padding: 1px 6px;
+}
+
+.standings-pts {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.standings-pos { color: var(--success); }
+.standings-neg { color: var(--danger); }
+
+/* Daftar pertandingan sebagai kartu skor */
+.match-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.match-card {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+
+.match-card--played {
+  background: var(--panel);
+}
+
+.match-card__side {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.match-card__side--home {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.match-card__side--away {
+  justify-content: flex-start;
+}
+
+.match-card__name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-card__side--win .match-card__name {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.match-card__logo {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.match-card__logo--empty {
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  opacity: 0.4;
+}
+
+.match-card__score {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Barlow Condensed', sans-serif;
+}
+
+.match-card__num {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 26px;
+  padding: 0 4px;
+  border-radius: 5px;
+  background: var(--panel-3);
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.match-card__dash {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.match-card__vs {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.match-card--edit {
+  grid-template-columns: 1fr auto 1fr auto;
+}
+
+.match-card__score--edit input {
+  width: 42px;
+  height: 28px;
+  padding: 2px 4px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.match-card__save {
+  justify-self: end;
+}
+
+@media (max-width: 960px) {
+  .group-stage-layout {
+    grid-template-columns: 1fr;
+  }
+  .group-stage-col--matches {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── COMPETITION KNOCKOUT TIE CARD ─── */
+
+.bracket-round-col {
+  min-width: 280px;
+}
+
+.tie-card {
+  background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  margin-bottom: 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.tie-card:hover {
+  border-color: var(--primary-dark);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.tie-card--decided {
+  border-color: rgba(38, 169, 108, 0.4);
+}
+
+.tie-card--final {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px rgba(240, 180, 41, 0.25), 0 10px 30px rgba(240, 180, 41, 0.12);
+  background: linear-gradient(180deg, rgba(240, 180, 41, 0.07) 0%, var(--panel) 70%);
+}
+
+/* Header tie: tim | skor agregat | tim */
+.tie-card__head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.tie-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tie-team:last-child {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.tie-team__logo {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.tie-team__logo--empty {
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  opacity: 0.4;
+}
+
+.tie-team__name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tie-team--win .tie-team__name {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* Skor agregat di tengah header */
+.tie-card__agg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--panel-3);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.tie-card__agg i {
+  font-style: normal;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.tie-card__agg--empty {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  background: transparent;
+}
+
+.tie-card__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tie-card__note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tie-card__winner {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--success);
+}
+
+/* Daftar leg */
+.tie-card__legs {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+}
+
+.tie-card__agg-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.leg-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px;
+}
+
+.leg-row--edit {
+  grid-template-columns: auto 1fr auto;
+}
+
+.leg-row__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.leg-row__pair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.leg-row__logo {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.leg-row__logo--empty {
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  opacity: 0.4;
+}
+
+.leg-row__num {
+  min-width: 16px;
+  text-align: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.leg-row__dash {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.leg-row--edit input {
+  width: 38px;
+  height: 26px;
+  padding: 2px 4px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.leg-row__save {
+  justify-self: end;
+}
+
+.tie-resolver {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-2);
+}
+
+.tie-resolver__hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warning);
+}
+
+/* ─── COMPETITION CHAMPION TAB ─── */
+
+.champion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 8px 0 24px;
+}
+
+.champion__spotlight {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 24px 40px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(240, 180, 41, 0.18) 0%, transparent 60%),
+    linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+  border: 1px solid var(--border-2);
+  box-shadow: 0 0 0 1px rgba(240, 180, 41, 0.15), 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.champion__overline {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.champion__label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.champion__crest {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 150px;
+  height: 150px;
+  margin: 10px 0 6px;
+}
+
+/* Cincin konik berputar di belakang logo */
+.champion__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  padding: 3px;
+  background: conic-gradient(from 0deg,
+    transparent 0deg,
+    rgba(240, 180, 41, 0.9) 60deg,
+    transparent 130deg,
+    transparent 200deg,
+    rgba(240, 180, 41, 0.6) 280deg,
+    transparent 340deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  animation: champion-spin 6s linear infinite;
+}
+
+@keyframes champion-spin {
+  to { transform: rotate(360deg); }
+}
+
+.champion__glow {
+  position: absolute;
+  inset: -8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(240, 180, 41, 0.28) 0%, transparent 70%);
+  filter: blur(6px);
+  animation: champion-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes champion-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+
+.champion__logo {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5));
+}
+
+.champion__logo--empty {
+  font-size: 72px;
+}
+
+.champion__trophy {
+  position: absolute;
+  bottom: -6px;
+  right: -2px;
+  font-size: 34px;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5));
+}
+
+.champion__club {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.champion__club-name {
+  position: relative;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 38px;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  text-align: center;
+  background: linear-gradient(180deg, #fff4d6 0%, var(--primary) 60%, var(--primary-dark) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Kilatan emas menyapu nama */
+.champion__club-name::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.7) 50%, transparent 65%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  mix-blend-mode: screen;
+  animation: champion-sheen 3.6s ease-in-out infinite;
+}
+
+@keyframes champion-sheen {
+  0%, 100% { background-position: 180% 0; }
+  50% { background-position: -80% 0; }
+}
+
+.champion__laurel {
+  font-size: 26px;
+  opacity: 0.85;
+  filter: hue-rotate(8deg) saturate(0.6) brightness(1.1);
+}
+
+.champion__laurel--l { transform: scaleX(-1); }
+
+.champion__player {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.champion__stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.champion__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(240, 180, 41, 0.1);
+  border: 1px solid rgba(240, 180, 41, 0.25);
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.champion__stat b {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.champion__stat i {
+  font-style: normal;
+  color: var(--muted);
+  padding: 0 1px;
+}
+
+.champion__confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.champion__confetti span {
+  position: absolute;
+  top: -12px;
+  width: 7px;
+  height: 12px;
+  border-radius: 1px;
+  opacity: 0;
+  background: var(--primary);
+  animation-name: champion-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.champion__confetti span:nth-child(3n) { background: var(--accent); }
+.champion__confetti span:nth-child(3n+1) { background: var(--success); }
+.champion__confetti span:nth-child(5n) { background: #fff4d6; }
+.champion__confetti span:nth-child(4n) { width: 6px; height: 6px; border-radius: 50%; }
+.champion__confetti span:nth-child(7n) { width: 9px; height: 5px; }
+
+@keyframes champion-fall {
+  0% { transform: translate(0, -12px) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translate(var(--drift, 0), 440px) rotate(var(--spin, 540deg)); opacity: 0; }
+}
+
+.champion__runnerup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-2);
+}
+
+.champion__runnerup-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.champion__runnerup-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.champion__runnerup-logo--empty {
+  font-size: 16px;
+}
+
+.champion__runnerup-name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.champion__runnerup-player {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .champion__glow,
+  .champion__ring,
+  .champion__club-name::after,
+  .champion__confetti span {
+    animation: none;
+  }
+  .champion__club-name::after { display: none; }
+  .champion__confetti { display: none; }
+}

@@ -79,14 +79,85 @@ async function reloadDetail(id: string): Promise<Pick<CompetitionStore, 'competi
   return { competition, participants, matches };
 }
 
-/** Generate & persist match untuk satu babak knockout, lalu isi matchIds tiap tie. */
+/**
+ * Generate & persist match untuk tie di satu babak yang BELUM punya match,
+ * lalu isi matchIds tiap tie. Aman dipanggil ulang: tie yang sudah punya match
+ * dilewati sehingga tidak terjadi duplikasi (mis. saat tie kedua baru siap
+ * setelah tie pertama di babak yang sama).
+ */
 async function persistRoundMatches(competition: Competition, bracket: CompetitionBracket, round: number): Promise<void> {
-  const fresh = generateKnockoutMatchesForRound(bracket, round, competition.settings.knockoutLegs, competition.id);
+  const pending = new Set(
+    bracket.rounds[round]
+      .map((tie, i) => ({ tie, i }))
+      .filter(({ tie }) => (tie.matchIds?.length ?? 0) === 0)
+      .map(({ i }) => i),
+  );
+  const fresh = generateKnockoutMatchesForRound(bracket, round, competition.settings.knockoutLegs, competition.id)
+    .filter((m) => pending.has(m.tieIndex as number));
+  if (!fresh.length) return;
   const saved = await saveCompetitionMatches(fresh);
   bracket.rounds[round].forEach((tie, i) => {
     const ids = saved.filter((m) => m.tieIndex === i).map((m) => m.id);
     if (ids.length) tie.matchIds = ids;
   });
+}
+
+/**
+ * Hitung ulang pemenang tiap tie (otomatis bila agregat jelas; pakai
+ * manualWinners untuk tie yang agregatnya seri), buat match babak berikutnya
+ * yang sudah siap, lalu persist bracket + status juara bila final selesai.
+ */
+async function advanceBracketAndPersist(
+  competition: Competition,
+  matches: CompetitionMatch[],
+  manualWinners: Record<string, string> = {},
+): Promise<void> {
+  if (!competition.bracket) return;
+  const bracket = advanceKnockout(competition.bracket, matches, competition.settings, manualWinners);
+
+  // Generate match untuk tiap tie yang sudah siap tetapi belum punya match.
+  // Dicek per-tie (bukan per-babak) agar tie yang baru siap belakangan di
+  // babak yang sama tetap mendapat match-nya.
+  for (let r = 1; r < bracket.rounds.length; r += 1) {
+    const hasPending = bracket.rounds[r].some(
+      (t) => t.team1 && t.team2 && !t.bye && (t.matchIds?.length ?? 0) === 0,
+    );
+    if (hasPending) await persistRoundMatches(competition, bracket, r);
+  }
+
+  const finalRound = bracket.rounds[bracket.rounds.length - 1];
+  const champion = finalRound.length === 1 ? finalRound[0].winner : null;
+
+  // Simpan bracket advanced sekaligus dengan status final agar bracket yang
+  // sudah berisi pemenang tidak tertimpa state lama (lihat finishCompetition).
+  await saveCompetition({
+    ...competition,
+    bracket,
+    ...(champion
+      ? { championId: champion, status: 'finished' as const, finishedAt: new Date().toISOString() }
+      : {}),
+  });
+}
+
+/**
+ * Lengkapi match untuk tie knockout yang sudah siap (kedua tim diketahui)
+ * tetapi belum punya match. Return true bila ada perubahan yang dipersist.
+ */
+async function healMissingKnockoutMatches(competition: Competition): Promise<boolean> {
+  const bracket = competition.bracket;
+  if (!bracket || competition.status !== 'knockout') return false;
+  let changed = false;
+  for (let r = 0; r < bracket.rounds.length; r += 1) {
+    const hasPending = bracket.rounds[r].some(
+      (t) => t.team1 && t.team2 && !t.bye && (t.matchIds?.length ?? 0) === 0,
+    );
+    if (hasPending) {
+      await persistRoundMatches(competition, bracket, r);
+      changed = true;
+    }
+  }
+  if (changed) await saveCompetition({ ...competition, bracket });
+  return changed;
 }
 
 export const useCompetitionStore = create<CompetitionStore>((set, get) => ({
@@ -136,7 +207,14 @@ export const useCompetitionStore = create<CompetitionStore>((set, get) => ({
   },
 
   loadCompetitionDetail: async (id) => {
-    set(await reloadDetail(id));
+    const detail = await reloadDetail(id);
+    // Self-heal: kompetisi lama bisa punya tie siap-main tanpa match akibat
+    // bug generate per-babak. Lengkapi di sini lalu muat ulang bila berubah.
+    if (detail.competition && (await healMissingKnockoutMatches(detail.competition))) {
+      set(await reloadDetail(id));
+    } else {
+      set(detail);
+    }
   },
 
   addParticipant: async (competitionId, playerId) => {
@@ -262,38 +340,26 @@ export const useCompetitionStore = create<CompetitionStore>((set, get) => ({
     const match = get().matches.find((m) => m.id === matchId);
     if (!match) throw new Error('Match tidak ditemukan.');
     await saveCompetitionMatch({ ...match, homeScore, awayScore, status: 'finished' });
-    set(await reloadDetail(match.competitionId));
+
+    // Setelah skor tersimpan, langsung coba majukan bracket. Tie dengan agregat
+    // jelas otomatis lolos; hanya tie yang agregatnya seri butuh pilih manual
+    // (lihat resolveTie via TieResolver).
+    const fresh = await reloadDetail(match.competitionId);
+    if (fresh.competition) {
+      await advanceBracketAndPersist(fresh.competition, fresh.matches);
+      set(await reloadDetail(match.competitionId));
+    } else {
+      set(fresh);
+    }
   },
 
   resolveTie: async (competitionId, round, tieIndex, manualWinnerId) => {
     const { competition, matches } = get();
     if (!competition || competition.id !== competitionId) throw new Error('Competition belum dimuat.');
     if (!competition.bracket) throw new Error('Bracket belum dibuat.');
-    const { settings } = competition;
 
     const manualWinners = manualWinnerId ? { [`${round}-${tieIndex}`]: manualWinnerId } : {};
-    const bracket = advanceKnockout(competition.bracket, matches, settings, manualWinners);
-
-    // Generate match untuk babak berikutnya yang sudah siap tetapi belum punya match.
-    for (let r = 1; r < bracket.rounds.length; r += 1) {
-      const playable = bracket.rounds[r].filter((t) => t.team1 && t.team2 && !t.bye);
-      if (playable.length > 0 && playable.every((t) => t.matchIds.length === 0)) {
-        await persistRoundMatches(competition, bracket, r);
-      }
-    }
-
-    const finalRound = bracket.rounds[bracket.rounds.length - 1];
-    const champion = finalRound.length === 1 ? finalRound[0].winner : null;
-
-    // Simpan bracket advanced sekaligus dengan status final agar bracket yang
-    // sudah berisi pemenang tidak tertimpa state lama (lihat finishCompetition).
-    await saveCompetition({
-      ...competition,
-      bracket,
-      ...(champion
-        ? { championId: champion, status: 'finished' as const, finishedAt: new Date().toISOString() }
-        : {}),
-    });
+    await advanceBracketAndPersist(competition, matches, manualWinners);
     set(await reloadDetail(competitionId));
   },
 
